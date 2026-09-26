@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Tint applied to the small notification icon. Must be opaque enough to be
+      visible on any status bar background.
+    -->
+    <color name="notification_icon">#FFFFFFFF</color>
+</resources>
