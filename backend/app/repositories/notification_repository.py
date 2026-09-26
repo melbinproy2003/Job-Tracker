@@ -113,10 +113,7 @@ class NotificationRepository:
 
     def mark_all_read(self, user_id: str) -> int:
         """Flip every unread notification using a single batched write."""
-        refs = [
-            snap.reference
-            for snap in self._col(user_id).where("read", "==", False).stream()
-        ]
+        refs = [snap.reference for snap in self._col(user_id).where("read", "==", False).stream()]
         if not refs:
             return 0
         batch = self.client.batch()

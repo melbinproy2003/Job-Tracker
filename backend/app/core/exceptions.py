@@ -155,4 +155,3 @@ class FollowUpDuplicateError(ValidationError):
 class EventInPastError(ValidationError):
     def __init__(self, message: str = "Event time cannot be in the past."):
         super().__init__(message, code="EVENT_IN_PAST")
-

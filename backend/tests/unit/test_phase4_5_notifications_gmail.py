@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.core.config import get_settings
 from app.models.enums.device_platform import DevicePlatform
-from app.models.enums.gmail_match_status import GmailMatchStatus
 from app.models.enums.interview_status import InterviewStatus
 from app.models.enums.interview_type import InterviewType
 from app.models.enums.notification_type import NotificationType
@@ -20,7 +20,6 @@ from app.services.notifications.notification_service import NotificationService
 from app.services.notifications.reminder_service import ReminderService
 from app.utils.email import normalize_email, normalize_subject
 from app.utils.encryption import decrypt_secret, encrypt_secret
-from app.core.config import get_settings
 
 
 class InMemoryNotificationRepo:
@@ -137,7 +136,6 @@ def notification_svc():
     devices = InMemoryDeviceRepo()
     fcm = MagicMock()
     fcm.send_to_user.return_value = []
-    from app.services.notifications.fcm_service import FcmService
 
     svc = NotificationService(
         notification_repository=notes,
@@ -299,26 +297,15 @@ def test_reminder_interview_dedupe():
             return []
 
     reminder = ReminderService(
-        application_repository=AppRepo(),  # type: ignore
-        interview_repository=InterviewRepo(),  # type: ignore
-        followup_repository=FollowRepo(),  # type: ignore
+        application_repository=AppRepo(),
+        interview_repository=InterviewRepo(),
+        followup_repository=FollowRepo(),
         notification_service=notifier,
         notification_repository=notes,
     )
-    # Force now exactly at 24h-before window start
-    scheduled = datetime.now(timezone.utc) + timedelta(hours=24)
-    now = scheduled - timedelta(hours=24) + timedelta(minutes=1)
-    # Patch interview scheduled_at relative to now
-    InterviewRepo.list_all_for_user = lambda self, user_id, application_ids: [
-        {
-            "id": "i1",
-            "application_id": "a1",
-            "status": InterviewStatus.SCHEDULED.value,
-            "scheduled_at": now + timedelta(hours=24),
-            "title": "Technical Interview",
-            "company_name": "ABC",
-        }
-    ]
+    # Place `now` one minute past the 24h-before mark, so the interview that
+    # InterviewRepo reports as 24h out lands inside the reminder window.
+    now = datetime.now(timezone.utc) + timedelta(minutes=1)
     r1 = reminder.process_user("u1", now=now)
     r2 = reminder.process_user("u1", now=now)
     assert r1["interview"] == 1

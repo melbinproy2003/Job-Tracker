@@ -8,7 +8,6 @@ from app.core.exceptions import (
     CompanyHasApplicationsError,
     CompanyNotFoundError,
     DuplicateCompanyError,
-    ValidationError,
 )
 from app.repositories.application_repository import ApplicationRepository
 from app.repositories.company_repository import CompanyRepository
@@ -76,7 +75,7 @@ class CompanyService:
         if not company:
             raise CompanyNotFoundError()
         updates = payload.model_dump(exclude_unset=True)
-        if "name" in updates and updates["name"]:
+        if updates.get("name"):
             dup = self._companies.find_by_normalized_name(user_id, updates["name"])
             if dup and dup["id"] != company_id:
                 raise DuplicateCompanyError()

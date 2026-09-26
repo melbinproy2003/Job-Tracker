@@ -7,7 +7,6 @@ from typing import Any
 
 from app.models.enums.application_status import ApplicationStatus
 
-
 CATEGORY_PATTERNS: list[tuple[str, ApplicationStatus | None, list[str]]] = [
     (
         "OFFER",
@@ -107,7 +106,9 @@ class JobEmailDetector:
         }
 
     def _extract_interview_hints(self, text: str, message: dict[str, Any]) -> dict[str, Any]:
-        url_match = re.search(r"https?://\S+", message.get("body_text") or message.get("snippet") or "")
+        url_match = re.search(
+            r"https?://\S+", message.get("body_text") or message.get("snippet") or ""
+        )
         # Simple date/time patterns
         date_match = re.search(
             r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(,\s*\d{4})?",

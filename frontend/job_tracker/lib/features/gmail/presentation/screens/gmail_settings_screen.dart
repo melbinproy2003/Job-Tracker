@@ -85,12 +85,27 @@ class _GmailSettingsScreenState extends ConsumerState<GmailSettingsScreen> {
   Future<void> _sync() async {
     final ok = await ref.read(gmailSyncControllerProvider.notifier).sync();
     ref.invalidate(gmailAccountsProvider);
+    if (!mounted) return;
     if (ok) {
       ref.invalidate(gmailThreadsProvider);
-      if (mounted) _toast('Sync completed');
-    } else if (mounted) {
-      _toast('Sync failed. Try again later.');
+      _toast('Sync completed');
+      return;
     }
+
+    // The backend rate limits sync because each call spends the user's own
+    // Gmail quota. Saying "try again later" would invite an immediate retry,
+    // so name the actual wait instead.
+    final error = ref.read(gmailSyncControllerProvider).error;
+    if (error is ApiException && error.isRateLimited) {
+      final wait = error.retryAfterSeconds;
+      _toast(
+        wait == null
+            ? 'Sync is rate limited. Try again shortly.'
+            : 'Sync is rate limited. Try again in ${wait}s.',
+      );
+      return;
+    }
+    _toast('Sync failed. Try again later.');
   }
 
   void _toast(String message) {

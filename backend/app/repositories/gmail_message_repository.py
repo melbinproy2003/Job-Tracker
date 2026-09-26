@@ -33,7 +33,9 @@ class GmailMessageRepository:
                 return item
         return None
 
-    def create_if_absent(self, user_id: str, gmail_message_id: str, data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    def create_if_absent(
+        self, user_id: str, gmail_message_id: str, data: dict[str, Any]
+    ) -> tuple[dict[str, Any], bool]:
         existing = self.find_by_gmail_id(user_id, gmail_message_id)
         if existing:
             return existing, False
@@ -70,7 +72,11 @@ class GmailMessageRepository:
         for snap in self._col(user_id).stream():
             data = snap.to_dict() or {}
             data["id"] = snap.id
-            if thread_id and data.get("gmail_thread_id") != thread_id and data.get("thread_doc_id") != thread_id:
+            if (
+                thread_id
+                and data.get("gmail_thread_id") != thread_id
+                and data.get("thread_doc_id") != thread_id
+            ):
                 continue
             if application_id and data.get("application_id") != application_id:
                 continue

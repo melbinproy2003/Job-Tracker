@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:job_tracker/core/enums/application_status.dart';
+import 'package:job_tracker/core/errors/api_exception.dart';
 import 'package:job_tracker/features/applications/domain/entities/application.dart';
 import 'package:job_tracker/features/gmail/domain/entities/gmail_thread.dart';
 import 'package:job_tracker/features/gmail/domain/repositories/gmail_repository.dart';
@@ -50,6 +52,32 @@ void useTallSurface(WidgetTester tester) {
   tester.view.physicalSize = const Size(1000, 2400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
+}
+
+/// Builds a Dio failure shaped like the backend's error envelope, so the
+/// client's parsing of a rate-limited response is exercised for real.
+DioException _errorResponse({
+  int status = 429,
+  String code = 'GMAIL_SYNC_RATE_LIMITED',
+  String message = 'Gmail sync is rate limited. Try again in 42s.',
+  Map<String, dynamic>? details,
+}) {
+  final request = RequestOptions(path: '/api/v1/gmail/sync');
+  return DioException(
+    requestOptions: request,
+    response: Response<Map<String, dynamic>>(
+      requestOptions: request,
+      statusCode: status,
+      data: {
+        'success': false,
+        'error': {
+          'code': code,
+          'message': message,
+          if (details case final d?) 'details': d,
+        },
+      },
+    ),
+  );
 }
 
 void main() {
@@ -465,6 +493,47 @@ void main() {
       const thread = GmailThread(id: 't2', gmailThreadId: 'g2');
       await tester.pumpWidget(_wrap(const GmailThreadCard(thread: thread)));
       expect(find.text('(no subject)'), findsOneWidget);
+    });
+  });
+
+  group('Gmail sync rate limiting', () {
+    test('surfaces retry_after_seconds from the error details', () {
+      final api = ApiException.fromDio(
+        _errorResponse(details: {'retry_after_seconds': 42}),
+      );
+      expect(api, isNotNull);
+      expect(api!.code, 'GMAIL_SYNC_RATE_LIMITED');
+      expect(api.statusCode, 429);
+      expect(api.isRateLimited, isTrue);
+      expect(api.retryAfterSeconds, 42);
+    });
+
+    test('is rate limited without details, so the UI degrades gracefully', () {
+      final api = ApiException.fromDio(_errorResponse());
+      expect(api!.isRateLimited, isTrue);
+      expect(api.retryAfterSeconds, isNull);
+    });
+
+    test('a non-429 is not treated as rate limited', () {
+      final api = ApiException.fromDio(
+        _errorResponse(status: 500, code: 'INTERNAL_ERROR'),
+      );
+      expect(api!.isRateLimited, isFalse);
+    });
+
+    test('accepts a numeric string for retry_after_seconds', () {
+      final api = ApiException.fromDio(
+        _errorResponse(details: {'retry_after_seconds': '7'}),
+      );
+      expect(api!.retryAfterSeconds, 7);
+    });
+
+    test('existing conflict/duplicate flags still work', () {
+      final conflict = ApiException.fromDio(
+        _errorResponse(status: 409, code: 'INTERVIEW_CONFLICT'),
+      );
+      expect(conflict!.isInterviewConflict, isTrue);
+      expect(conflict.isRateLimited, isFalse);
     });
   });
 }

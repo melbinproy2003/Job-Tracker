@@ -36,8 +36,9 @@ class ApplicationListQuery {
       'page': page,
       'page_size': pageSize,
     };
-    if (search != null && search!.trim().isNotEmpty)
+    if (search != null && search!.trim().isNotEmpty) {
       map['search'] = search!.trim();
+    }
     if (location != null && location!.trim().isNotEmpty) {
       map['location'] = location!.trim();
     }

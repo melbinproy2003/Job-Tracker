@@ -71,7 +71,7 @@ class CompanyRepository:
 
     def update(self, user_id: str, company_id: str, data: dict[str, Any]) -> dict[str, Any]:
         payload = {**data, "updated_at": _utc_now()}
-        if "name" in payload and payload["name"]:
+        if payload.get("name"):
             payload["name_normalized"] = normalize_company_name(payload["name"])
         ref = self._col(user_id).document(company_id)
         ref.set(payload, merge=True)

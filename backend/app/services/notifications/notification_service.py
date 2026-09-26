@@ -31,7 +31,9 @@ class NotificationService:
         self._devices = device_repository or DeviceRepository()
         self._fcm = fcm_service or FcmService(device_repository=self._devices)
 
-    def register_device(self, user_id: str, payload: DeviceRegisterRequest) -> DeviceRegisterResponse:
+    def register_device(
+        self, user_id: str, payload: DeviceRegisterRequest
+    ) -> DeviceRegisterResponse:
         try:
             platform = DevicePlatform(payload.platform)
         except ValueError as exc:

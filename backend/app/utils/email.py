@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-
 _PREFIX_RE = re.compile(r"^(re|fwd|fw)\s*:\s*", re.IGNORECASE)
 
 

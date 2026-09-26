@@ -1,9 +1,8 @@
 """Application request/response schemas."""
 
 from datetime import datetime
-from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.enums.application_status import ApplicationStatus
 
@@ -47,7 +46,7 @@ class ApplicationCreateRequest(BaseModel):
         if v is None or not v.strip():
             return None
         value = v.strip()
-        if not (value.startswith("http://") or value.startswith("https://")):
+        if not value.startswith(("http://", "https://")):
             raise ValueError("Job URL must be a valid URL.")
         return value
 
@@ -73,10 +72,11 @@ class ApplicationCreateRequest(BaseModel):
             and self.salary_min > self.salary_max
         ):
             raise ValueError("salary_min cannot be greater than salary_max.")
-        if self.recruiter_email:
-            # lightweight email check without requiring EmailStr on optional empty
-            if "@" not in self.recruiter_email or "." not in self.recruiter_email.split("@")[-1]:
-                raise ValueError("Invalid recruiter email.")
+        # Lightweight email check, avoiding a hard EmailStr requirement.
+        if self.recruiter_email and (
+            "@" not in self.recruiter_email or "." not in self.recruiter_email.split("@")[-1]
+        ):
+            raise ValueError("Invalid recruiter email.")
         return self
 
 
@@ -114,7 +114,7 @@ class ApplicationUpdateRequest(BaseModel):
         if v is None or not str(v).strip():
             return None
         value = str(v).strip()
-        if not (value.startswith("http://") or value.startswith("https://")):
+        if not value.startswith(("http://", "https://")):
             raise ValueError("Job URL must be a valid URL.")
         return value
 

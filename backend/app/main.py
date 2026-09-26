@@ -1,7 +1,8 @@
 """FastAPI application entrypoint."""
 
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -24,13 +25,19 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-def _error_body(code: str, message: str) -> dict:
+def _error_body(code: str, message: str, details: Any = None) -> dict:
+    error: dict[str, Any] = {
+        "code": code,
+        "message": message,
+    }
+    # Surfaced so a client can react to a structured signal — e.g. the Gmail
+    # sync cooldown returns `retry_after_seconds` instead of making the user
+    # parse prose to learn when to retry.
+    if details is not None:
+        error["details"] = details
     return {
         "success": False,
-        "error": {
-            "code": code,
-            "message": message,
-        },
+        "error": error,
     }
 
 
@@ -65,7 +72,7 @@ def create_app() -> FastAPI:
     async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
-            content=_error_body(exc.code, exc.message),
+            content=_error_body(exc.code, exc.message, exc.details),
         )
 
     @application.exception_handler(RequestValidationError)

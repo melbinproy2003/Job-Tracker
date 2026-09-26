@@ -70,7 +70,9 @@ class InterviewRepository:
             items.extend(self.list_for_application(user_id, application_id))
         return items
 
-    def find_by_id(self, user_id: str, interview_id: str, application_ids: list[str]) -> dict[str, Any] | None:
+    def find_by_id(
+        self, user_id: str, interview_id: str, application_ids: list[str]
+    ) -> dict[str, Any] | None:
         for application_id in application_ids:
             found = self.get(user_id, application_id, interview_id)
             if found:

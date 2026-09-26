@@ -122,7 +122,7 @@ def test_auth_me_valid_token_creates_user(client: TestClient) -> None:
     original_verify = deps.verify_firebase_id_token
     original_service = deps.get_auth_service
     deps.verify_firebase_id_token = _ok  # type: ignore[assignment]
-    deps.get_auth_service = lambda: AuthService(user_repository=mock_repo)  # type: ignore[assignment]
+    deps.get_auth_service = lambda: AuthService(user_repository=mock_repo)
     try:
         response = client.get(
             "/api/v1/auth/me",

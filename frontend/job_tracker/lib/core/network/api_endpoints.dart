@@ -41,6 +41,4 @@ abstract final class ApiEndpoints {
   static String gmailMatchIgnore(String threadId) =>
       '/api/v1/gmail/matches/$threadId/ignore';
   static String gmailAccount(String id) => '/api/v1/gmail/accounts/$id';
-
-  static const settingsNotifications = '/api/v1/settings/notifications';
 }

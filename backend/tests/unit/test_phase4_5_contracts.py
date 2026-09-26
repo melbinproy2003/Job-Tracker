@@ -11,6 +11,7 @@ the frontend depends on:
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock
@@ -99,8 +100,8 @@ def notifier():
     fcm = MagicMock()
     fcm.send_to_user.return_value = []
     svc = NotificationService(
-        notification_repository=notes,  # type: ignore
-        device_repository=_Devices(),  # type: ignore
+        notification_repository=notes,
+        device_repository=_Devices(),
         fcm_service=fcm,
     )
     return svc, notes
@@ -208,12 +209,12 @@ def gmail():
     status = _StatusSpy()
     interviews = _InterviewsSpy()
     svc = GmailService(
-        thread_repository=_ThreadsRepo(),  # type: ignore
-        message_repository=_MessagesRepo(),  # type: ignore
-        application_repository=_AppsRepo(),  # type: ignore
-        status_service=status,  # type: ignore
-        interview_service=interviews,  # type: ignore
-        activity_service=_Activities(),  # type: ignore
+        thread_repository=_ThreadsRepo(),
+        message_repository=_MessagesRepo(),
+        application_repository=_AppsRepo(),
+        status_service=status,
+        interview_service=interviews,
+        activity_service=_Activities(),
     )
     return svc, status, interviews
 
@@ -306,3 +307,100 @@ def test_ignore_does_not_mutate_the_application(gmail):
     assert result.match_status == GmailMatchStatus.IGNORED.value
     assert status.calls == []
     assert interviews.calls == []
+
+
+class TestGmailSyncCooldown:
+    """The sync endpoint spends the user's own Gmail quota, so it is limited."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_state(self):
+        from app.services.gmail import gmail_sync_service as mod
+
+        mod._LAST_SYNC_AT.clear()
+        mod._SYNC_LOCKS.clear()
+        yield
+        mod._LAST_SYNC_AT.clear()
+        mod._SYNC_LOCKS.clear()
+
+    @pytest.fixture
+    def cooldown(self, monkeypatch):
+        monkeypatch.setenv("GMAIL_SYNC_COOLDOWN_SECONDS", "60")
+        monkeypatch.setenv("GMAIL_FULL_SYNC_COOLDOWN_SECONDS", "300")
+        get_settings.cache_clear()
+        yield
+        get_settings.cache_clear()
+
+    def test_first_sync_is_allowed(self, cooldown):
+        from app.services.gmail.gmail_sync_service import GmailSyncService
+
+        # _enforce_cooldown runs before any repository access, so a service with
+        # no wired repositories is enough to exercise the guard.
+        GmailSyncService._enforce_cooldown("u1", full_sync=False)
+
+    def test_second_sync_inside_the_window_is_rejected(self, cooldown):
+        from app.core.exceptions import AppError
+        from app.services.gmail import gmail_sync_service as mod
+        from app.services.gmail.gmail_sync_service import GmailSyncService
+
+        mod._LAST_SYNC_AT["u1"] = time.monotonic()
+        with pytest.raises(AppError) as exc:
+            GmailSyncService._enforce_cooldown("u1", full_sync=False)
+
+        assert exc.value.status_code == 429
+        assert exc.value.code == "GMAIL_SYNC_RATE_LIMITED"
+        assert exc.value.details["retry_after_seconds"] > 0
+
+    def test_sync_is_allowed_again_after_the_window(self, cooldown):
+        from app.services.gmail import gmail_sync_service as mod
+        from app.services.gmail.gmail_sync_service import GmailSyncService
+
+        mod._LAST_SYNC_AT["u1"] = time.monotonic() - 61
+        GmailSyncService._enforce_cooldown("u1", full_sync=False)
+
+    def test_a_full_sync_gets_a_longer_cooldown(self, cooldown):
+        from app.core.exceptions import AppError
+        from app.services.gmail import gmail_sync_service as mod
+        from app.services.gmail.gmail_sync_service import GmailSyncService
+
+        # 120s ago: past the incremental window, inside the full-sync window.
+        mod._LAST_SYNC_AT["u1"] = time.monotonic() - 120
+        GmailSyncService._enforce_cooldown("u1", full_sync=False)
+
+        with pytest.raises(AppError) as exc:
+            GmailSyncService._enforce_cooldown("u1", full_sync=True)
+        assert exc.value.code == "GMAIL_SYNC_RATE_LIMITED"
+
+    def test_the_limit_is_per_user(self, cooldown):
+        from app.services.gmail import gmail_sync_service as mod
+        from app.services.gmail.gmail_sync_service import GmailSyncService
+
+        mod._LAST_SYNC_AT["u1"] = time.monotonic()
+        # A different user must never be blocked by someone else's activity.
+        GmailSyncService._enforce_cooldown("u2", full_sync=False)
+
+    def test_zero_disables_the_limit(self, monkeypatch):
+        from app.services.gmail import gmail_sync_service as mod
+        from app.services.gmail.gmail_sync_service import GmailSyncService
+
+        monkeypatch.setenv("GMAIL_SYNC_COOLDOWN_SECONDS", "0")
+        get_settings.cache_clear()
+        try:
+            mod._LAST_SYNC_AT["u1"] = time.monotonic()
+            GmailSyncService._enforce_cooldown("u1", full_sync=False)
+        finally:
+            get_settings.cache_clear()
+
+
+class TestErrorBodyCarriesDetails:
+    """A structured signal must survive the error handler."""
+
+    def test_details_are_included(self):
+        from app.main import _error_body
+
+        body = _error_body("GMAIL_SYNC_RATE_LIMITED", "slow down", {"retry_after_seconds": 42})
+        assert body["error"]["details"] == {"retry_after_seconds": 42}
+
+    def test_details_are_omitted_when_absent(self):
+        from app.main import _error_body
+
+        assert "details" not in _error_body("X", "y")

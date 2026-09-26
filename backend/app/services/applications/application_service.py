@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Iterable
+from typing import Any
 
-from app.core.exceptions import ApplicationNotFoundError, CompanyNotFoundError, ValidationError
+from app.core.exceptions import ApplicationNotFoundError, CompanyNotFoundError
 from app.models.enums.activity_type import ActivityType
 from app.models.enums.application_status import ApplicationStatus
 from app.repositories.activity_repository import ActivityRepository
@@ -68,9 +68,7 @@ class ApplicationService:
         self._apps = application_repository or ApplicationRepository()
         self._companies = company_repository or CompanyRepository()
         self._history = history_repository or ApplicationHistoryRepository()
-        self._activities = activity_service or ActivityService(
-            application_repository=self._apps
-        )
+        self._activities = activity_service or ActivityService(application_repository=self._apps)
         self._interviews = interview_repository or InterviewRepository()
         self._followups = followup_repository or FollowUpRepository()
         self._activity_repo = activity_repository or ActivityRepository()
@@ -169,14 +167,21 @@ class ApplicationService:
             raise ApplicationNotFoundError()
 
         updates = payload.model_dump(exclude_unset=True)
-        if "company_id" in updates and updates["company_id"]:
+        if updates.get("company_id"):
             company = self._companies.get(user_id, updates["company_id"])
             if not company:
                 raise CompanyNotFoundError()
             updates["company_id"] = company["id"]
             updates["company_name"] = company["name"]
 
-        for key in ("location", "source", "employment_type", "recruiter_name", "cover_letter", "notes"):
+        for key in (
+            "location",
+            "source",
+            "employment_type",
+            "recruiter_name",
+            "cover_letter",
+            "notes",
+        ):
             if key in updates:
                 updates[key] = sanitize_text(updates.get(key))
 

@@ -54,10 +54,9 @@ class ApplicationMatcher:
             # Domain heuristic: careers@abc.com vs company name abc
             if sender_domain:
                 domain_base = company_name_from_domain(sender_domain).lower()
-                if domain_base and domain_base in company_name:
-                    score += 40
-                    reasons.append("company_domain_match")
-                elif company_name and company_name.split()[0] in sender_domain:
+                if (domain_base and domain_base in company_name) or (
+                    company_name and company_name.split()[0] in sender_domain
+                ):
                     score += 40
                     reasons.append("company_domain_match")
 

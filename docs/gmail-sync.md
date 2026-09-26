@@ -118,6 +118,7 @@ routes to `/gmail/threads/{thread_id}`.
 | History call fails | falls back to the bounded query path, so the sync still completes |
 | Gmail 4xx rate limit | surfaced as an error; the next poll retries — sync is idempotent so a retry is safe |
 | Partial failure mid-thread | thread upserts already committed stand; the next poll completes the rest |
+| Local cooldown hit | rejected with `429 GMAIL_SYNC_RATE_LIMITED` and `retry_after_seconds`; see [Rate limiting](#rate-limiting) |
 | Concurrent sync for the same user | rejected with `409 GMAIL_SYNC_IN_PROGRESS` by an in-process lock, so a double-tap cannot run two syncs |
 
 Already-seen messages are skipped via `find_by_gmail_id` before any API fetch,
@@ -133,15 +134,40 @@ so a repeated poll costs no Gmail reads for already-known mail.
 - a failed sync is safe to retry, because upserts and dedupe keys make it
   idempotent rather than duplicating.
 
-### Known gap: no rate limiting
+### Rate limiting
 
-`POST /api/v1/gmail/sync` is **not** rate limited. An authenticated client
-could call it in a loop and consume Gmail API quota, which for a `gmail.readonly`
-user can also count against their own account's 403. The sync is idempotent, so
-this cannot corrupt data — it is a cost and courtesy problem, not a correctness
-one. Add a per-user limiter (e.g. `slowapi`, or a timestamp on
-`gmail_accounts.last_sync_at`) before exposing the endpoint outside a
-single-user deployment.
+`POST /api/v1/gmail/sync` is rate limited per user, because each call spends the
+user's own Gmail quota — and for a `gmail.readonly` scope that quota can count
+against their account's 403 limit.
+
+A sync that arrives inside the cooldown window is rejected with
+`429 GMAIL_SYNC_RATE_LIMITED`, and `error.details.retry_after_seconds` tells the
+client exactly how long to wait:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "GMAIL_SYNC_RATE_LIMITED",
+    "message": "Gmail sync is rate limited. Try again in 42s.",
+    "details": { "retry_after_seconds": 42 }
+  }
+}
+```
+
+| Setting | Default | Applies to |
+| --- | --- | --- |
+| `GMAIL_SYNC_COOLDOWN_SECONDS` | `60` | any manual or scheduled sync |
+| `GMAIL_FULL_SYNC_COOLDOWN_SECONDS` | `300` | `full_sync=true` only, which reads more mail and is therefore throttled harder |
+
+The Flutter client surfaces the remaining wait rather than a generic failure, so
+a throttled user is not invited into an immediate retry.
+
+**Limitation:** the limiter is in-process and in-memory. That is sufficient for
+the single-process deployment this project targets, but with multiple API
+instances each keeps its own window, so a user could still trigger roughly one
+sync per instance per cooldown. Move the timestamp onto the `gmail_accounts`
+document (it already carries `last_sync_at`) before scaling out.
 
 ## See also
 

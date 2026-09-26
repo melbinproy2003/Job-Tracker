@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from app.core.exceptions import ApplicationNotFoundError, NotFoundError, ValidationError
@@ -14,6 +14,7 @@ from app.repositories.application_repository import ApplicationRepository
 from app.repositories.gmail_account_repository import GmailAccountRepository
 from app.repositories.gmail_message_repository import GmailMessageRepository
 from app.repositories.gmail_thread_repository import GmailThreadRepository
+from app.schemas.application import ApplicationStatusUpdateRequest
 from app.schemas.gmail import (
     GmailAccountResponse,
     GmailMatchConfirmRequest,
@@ -27,7 +28,6 @@ from app.services.applications.application_status_service import ApplicationStat
 from app.services.gmail.gmail_oauth_service import GmailOAuthService
 from app.services.gmail.gmail_sync_service import GmailSyncService
 from app.services.interviews.interview_service import InterviewService
-from app.schemas.application import ApplicationStatusUpdateRequest
 
 
 class GmailService:
@@ -55,15 +55,9 @@ class GmailService:
             application_repository=self._apps,
             oauth_service=self._oauth,
         )
-        self._status = status_service or ApplicationStatusService(
-            application_repository=self._apps
-        )
-        self._interviews = interview_service or InterviewService(
-            application_repository=self._apps
-        )
-        self._activities = activity_service or ActivityService(
-            application_repository=self._apps
-        )
+        self._status = status_service or ApplicationStatusService(application_repository=self._apps)
+        self._interviews = interview_service or InterviewService(application_repository=self._apps)
+        self._activities = activity_service or ActivityService(application_repository=self._apps)
 
     def start_connect(self, user_id: str) -> str:
         return self._oauth.build_authorization_url(user_id)
@@ -183,7 +177,9 @@ class GmailService:
             iv = payload.interview
             scheduled = iv.get("scheduled_at")
             if not scheduled:
-                raise ValidationError("Interview scheduled_at is required.", code="INVALID_INTERVIEW")
+                raise ValidationError(
+                    "Interview scheduled_at is required.", code="INVALID_INTERVIEW"
+                )
             if isinstance(scheduled, str):
                 scheduled = datetime.fromisoformat(scheduled.replace("Z", "+00:00"))
             itype = InterviewType(iv.get("type") or InterviewType.OTHER.value)

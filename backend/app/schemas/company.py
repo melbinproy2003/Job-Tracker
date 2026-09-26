@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, HttpUrl
+from pydantic import BaseModel, Field, field_validator
 
 
 class CompanyCreateRequest(BaseModel):
@@ -27,7 +27,7 @@ class CompanyCreateRequest(BaseModel):
         if v is None or not v.strip():
             return None
         value = v.strip()
-        if not (value.startswith("http://") or value.startswith("https://")):
+        if not value.startswith(("http://", "https://")):
             raise ValueError("Website must be a valid URL.")
         return value
 
@@ -55,7 +55,7 @@ class CompanyUpdateRequest(BaseModel):
         if v is None or not str(v).strip():
             return None
         value = str(v).strip()
-        if not (value.startswith("http://") or value.startswith("https://")):
+        if not value.startswith(("http://", "https://")):
             raise ValueError("Website must be a valid URL.")
         return value
 

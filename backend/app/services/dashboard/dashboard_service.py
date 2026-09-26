@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from app.models.enums.application_status import ApplicationStatus
 from app.models.enums.interview_status import InterviewStatus
@@ -15,7 +14,6 @@ from app.schemas.dashboard import (
     DashboardResponse,
     DashboardUpcomingEvent,
 )
-
 
 ACTIVE_STATUSES = {
     ApplicationStatus.SAVED.value,
@@ -105,7 +103,11 @@ class DashboardService:
 
         recent = sorted(
             apps,
-            key=lambda a: a.get("updated_at") or a.get("created_at") or datetime.min.replace(tzinfo=timezone.utc),
+            key=lambda a: (
+                a.get("updated_at")
+                or a.get("created_at")
+                or datetime.min.replace(tzinfo=timezone.utc)
+            ),
             reverse=True,
         )[:5]
         recent_applications = [

@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.dependencies import get_current_user_id
-from app.schemas.interview import InterviewCreateRequest, InterviewResponse, InterviewUpdateRequest
+from app.schemas.interview import InterviewResponse, InterviewUpdateRequest
 from app.services.interviews.interview_service import InterviewService
 
 router = APIRouter()

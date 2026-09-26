@@ -58,3 +58,13 @@ backend/tmp/
 # Logs
 *.log
 logs/
+
+# Node / Firestore rules tests
+node_modules/
+coverage/
+.firebase/
+*.log.firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase-debug.log

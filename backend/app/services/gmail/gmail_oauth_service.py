@@ -30,7 +30,9 @@ class GmailOAuthService:
     def build_authorization_url(self, user_id: str) -> str:
         settings = get_settings()
         if not settings.google_client_id or not settings.google_client_secret:
-            raise AppError("Gmail OAuth is not configured.", code="GMAIL_NOT_CONFIGURED", status_code=503)
+            raise AppError(
+                "Gmail OAuth is not configured.", code="GMAIL_NOT_CONFIGURED", status_code=503
+            )
         state = secrets.token_urlsafe(24)
         self._states.save(state, user_id)
         return self._oauth.build_authorization_url(state)
@@ -46,12 +48,16 @@ class GmailOAuthService:
         access = tokens.get("access_token")
         refresh = tokens.get("refresh_token")
         if not access:
-            raise AppError("Failed to obtain Gmail access token.", code="GMAIL_TOKEN_ERROR", status_code=502)
+            raise AppError(
+                "Failed to obtain Gmail access token.", code="GMAIL_TOKEN_ERROR", status_code=502
+            )
 
         client = GoogleGmailClient(access, refresh)
         email = client.get_profile_email()
         if not email:
-            raise AppError("Unable to read Gmail profile.", code="GMAIL_PROFILE_ERROR", status_code=502)
+            raise AppError(
+                "Unable to read Gmail profile.", code="GMAIL_PROFILE_ERROR", status_code=502
+            )
 
         encrypted_access = encrypt_secret(access)
         encrypted_refresh = encrypt_secret(refresh) if refresh else None
@@ -102,7 +108,9 @@ class GmailOAuthService:
         )
         return new_access
 
-    def frontend_redirect(self, *, success: bool, email: str | None = None, error: str | None = None) -> str:
+    def frontend_redirect(
+        self, *, success: bool, email: str | None = None, error: str | None = None
+    ) -> str:
         settings = get_settings()
         if success:
             base = settings.gmail_frontend_success_url

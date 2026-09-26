@@ -25,9 +25,7 @@ class ApplicationStatusService:
     ):
         self._apps = application_repository or ApplicationRepository()
         self._history = history_repository or ApplicationHistoryRepository()
-        self._activities = activity_service or ActivityService(
-            application_repository=self._apps
-        )
+        self._activities = activity_service or ActivityService(application_repository=self._apps)
 
     def change_status(
         self,

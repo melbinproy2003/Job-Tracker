@@ -30,7 +30,14 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // TODO: Replace all placeholder values with output from `flutterfire configure`.
+  // Configured for the `job-tracker-1f733` project: web, Android, and iOS all
+  // hold real values. Only macOS is a placeholder, and macOS is not a target
+  // for this app — [isConfigured] reports false there so `FirebaseService`
+  // fails with an actionable message instead of an opaque SDK error.
+  //
+  // Regenerate with:
+  //   dart pub global activate flutterfire_cli
+  //   flutterfire configure
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyDbXTS5Z0IvYWcdA709HMAGk3VRzBoW-lk',

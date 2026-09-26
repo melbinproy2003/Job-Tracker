@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.enums.interview_status import InterviewStatus
 from app.models.enums.interview_type import InterviewType
@@ -34,7 +34,7 @@ class InterviewCreateRequest(BaseModel):
         if v is None or not v.strip():
             return None
         value = v.strip()
-        if not (value.startswith("http://") or value.startswith("https://")):
+        if not value.startswith(("http://", "https://")):
             raise ValueError("Meeting URL must be a valid URL.")
         return value
 
@@ -75,7 +75,7 @@ class InterviewUpdateRequest(BaseModel):
         if v is None or not str(v).strip():
             return None
         value = str(v).strip()
-        if not (value.startswith("http://") or value.startswith("https://")):
+        if not value.startswith(("http://", "https://")):
             raise ValueError("Meeting URL must be a valid URL.")
         return value
 

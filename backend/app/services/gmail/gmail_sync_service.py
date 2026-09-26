@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
+import time
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.config import get_settings
 from app.core.exceptions import AppError, NotFoundError
 from app.integrations.google.gmail_client import GoogleGmailClient
 from app.models.enums.activity_type import ActivityType
@@ -23,6 +26,9 @@ from app.services.notifications.notification_service import NotificationService
 
 # In-memory sync locks (per process)
 _SYNC_LOCKS: set[str] = set()
+
+# Last sync start time per user (per process), used for the cooldown.
+_LAST_SYNC_AT: dict[str, float] = {}
 
 
 class GmailSyncService:
@@ -49,14 +55,56 @@ class GmailSyncService:
         self._activities = activity_service or ActivityService(application_repository=self._apps)
 
     def sync(self, user_id: str, *, full_sync: bool = False) -> dict[str, Any]:
+        self._enforce_cooldown(user_id, full_sync=full_sync)
         lock_key = user_id
         if lock_key in _SYNC_LOCKS:
-            raise AppError("Gmail sync already in progress.", code="GMAIL_SYNC_IN_PROGRESS", status_code=409)
+            raise AppError(
+                "Gmail sync already in progress.", code="GMAIL_SYNC_IN_PROGRESS", status_code=409
+            )
         _SYNC_LOCKS.add(lock_key)
+        _LAST_SYNC_AT[user_id] = time.monotonic()
         try:
             return self._sync(user_id, full_sync=full_sync)
         finally:
             _SYNC_LOCKS.discard(lock_key)
+
+    @staticmethod
+    def _enforce_cooldown(user_id: str, *, full_sync: bool) -> None:
+        """Reject a sync that arrives too soon after the previous one.
+
+        Sync is idempotent, so hammering it cannot corrupt data, but each call
+        spends the user's own Gmail API quota. A full sync costs more than an
+        incremental one, so it gets a longer cooldown.
+
+        The guard is per process, like the lock above: with more than one
+        backend instance this becomes advisory rather than strict, which is
+        acceptable for a single-user deployment. A shared store (or App Check)
+        would be required to make it global.
+        """
+        settings = get_settings()
+        cooldown = (
+            settings.gmail_full_sync_cooldown_seconds
+            if full_sync
+            else settings.gmail_sync_cooldown_seconds
+        )
+        if cooldown <= 0:
+            return
+
+        last = _LAST_SYNC_AT.get(user_id)
+        if last is None:
+            return
+
+        elapsed = time.monotonic() - last
+        if elapsed >= cooldown:
+            return
+
+        retry_after = max(1, math.ceil(cooldown - elapsed))
+        raise AppError(
+            f"Gmail sync is rate limited. Try again in {retry_after}s.",
+            code="GMAIL_SYNC_RATE_LIMITED",
+            status_code=429,
+            details={"retry_after_seconds": retry_after},
+        )
 
     def _sync(self, user_id: str, *, full_sync: bool) -> dict[str, Any]:
         account = self._accounts.get_primary(user_id)
@@ -76,7 +124,9 @@ class GmailSyncService:
         matches_suggested = 0
         apps = self._apps.list_all(user_id)
 
-        query = "newer_than:90d (application OR interview OR offer OR careers OR recruiting OR hiring)"
+        query = (
+            "newer_than:90d (application OR interview OR offer OR careers OR recruiting OR hiring)"
+        )
         page_token = None
         cursor = None if full_sync else account.get("sync_cursor")
         used_history = False
@@ -115,7 +165,7 @@ class GmailSyncService:
             raw = client.get_message(mid)
             parsed = parse_gmail_message(raw)
             detection = self._detector.detect(parsed)
-            msg, created = self._messages.create_if_absent(
+            _msg, created = self._messages.create_if_absent(
                 user_id,
                 mid,
                 {
@@ -194,21 +244,27 @@ class GmailSyncService:
                     or thread.get("application_id"),
                     dedupe_key=f"gmail_{mid}_detected",
                 )
-                if best and best["confidence"] >= 40 and prefs.get("application_suggestions", True):
-                    if detection.get("suggested_status"):
-                        self._notifier.create_and_push(
-                            user_id,
-                            type=NotificationType.APPLICATION_STATUS_SUGGESTION,
-                            title="Application status suggestion",
-                            body=f"{best.get('company_name')}: suggested {detection['suggested_status']}",
-                            data={
-                                "thread_id": thread["id"],
-                                "application_id": best["application_id"],
-                                "suggested_status": detection["suggested_status"],
-                            },
-                            related_application_id=best["application_id"],
-                            dedupe_key=f"gmail_{mid}_status_suggestion",
-                        )
+                if (
+                    best
+                    and best["confidence"] >= 40
+                    and prefs.get("application_suggestions", True)
+                    and detection.get("suggested_status")
+                ):
+                    self._notifier.create_and_push(
+                        user_id,
+                        type=NotificationType.APPLICATION_STATUS_SUGGESTION,
+                        title="Application status suggestion",
+                        body=(
+                            f"{best.get('company_name')}: suggested {detection['suggested_status']}"
+                        ),
+                        data={
+                            "thread_id": thread["id"],
+                            "application_id": best["application_id"],
+                            "suggested_status": detection["suggested_status"],
+                        },
+                        related_application_id=best["application_id"],
+                        dedupe_key=f"gmail_{mid}_status_suggestion",
+                    )
 
             if best and best.get("application_id"):
                 self._activities.record(

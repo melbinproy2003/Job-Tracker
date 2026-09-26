@@ -25,13 +25,15 @@ Status of every phase, what is verified, and what remains manual.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Backend tests | `backend/.venv/bin/python -m pytest tests/ -q` | **38 passed** |
-| Flutter tests | `flutter test` | **63 passed** |
+| Backend tests | `backend/.venv/bin/python -m pytest tests/ -q` | **46 passed, 1 warning** |
+| Flutter tests | `flutter test` | **68 passed** |
 | Static analysis | `flutter analyze` | 0 errors, 0 warnings, 10 pre-existing infos |
+| Backend lint | `cd backend && ruff check app tests && ruff format --check app tests` | **clean** |
+| Backend types | `cd backend && mypy app tests` | **clean** |
 | Android build | `flutter build apk --debug` | **succeeds** |
 | iOS build | — | not runnable on Linux |
-| Firestore rules | — | reviewed, **not** run against the emulator |
-| Formatting | `dart format lib test` | clean |
+| Firestore rules | `npm run test:rules` (emulator) | **32 passed** |
+| Formatting | `dart format --output=none --set-exit-if-changed lib test` | clean |
 
 The 10 remaining analyzer infos are all `deprecated_member_use` on
 `DropdownButtonFormField.value` and one `curly_braces_in_flow_control_structures`,
@@ -82,6 +84,11 @@ Docs: [`notification-architecture.md`](docs/notification-architecture.md),
 - [x] **Suggestion-only pipeline** — three independent opt-ins on confirm
 - [x] UI confidence gating: low-confidence matches start unselected
 - [x] Routes, settings hub, application-detail Emails section
+- [x] Per-user sync cooldowns: incremental (60s default,
+      `GMAIL_SYNC_COOLDOWN_SECONDS`) and full-sync (300s default,
+      `GMAIL_FULL_SYNC_COOLDOWN_SECONDS`). Over-eager clients get
+      `429 GMAIL_SYNC_RATE_LIMITED` with `error.details.retry_after_seconds`,
+      and the Flutter client shows the remaining wait instead of "try again".
 - [ ] **Manual:** Google Cloud OAuth client + consent screen
 - [ ] **Manual:** end-to-end connect → sync → confirm on a real device
 
@@ -91,9 +98,11 @@ Docs: [`gmail-integration.md`](docs/gmail-integration.md),
 [`gmail-security.md`](docs/gmail-security.md)
 
 ### Known gaps
-- **`POST /gmail/sync` is not rate limited.** A client can loop it and burn
-  Gmail quota. Data stays correct (sync is idempotent) but cost is not
-  bounded. Add a per-user limiter before multi-user exposure.
+- **The sync rate limiter is per-process and in-memory.** Correct for the
+  single-process deployment this project targets, but if the API is scaled to
+  multiple instances each keeps its own window, so a user could still trigger
+  roughly one sync per instance per cooldown. Move the timestamp onto the
+  `gmail_accounts` document (it already carries `last_sync_at`) before scaling.
 - Candidates come from the loaded application list, so a very old application
   outside the loaded page will not appear in the match picker.
 - Sync failure surfaces as a generic error; there is no retry-with-backoff
@@ -110,10 +119,16 @@ Docs: [`gmail-integration.md`](docs/gmail-integration.md),
 - [x] Unit tests for every implemented phase
 - [x] Firestore rules reviewed for server-only writes
 - [x] Security docs
-- [ ] Firestore rules exercised against the emulator / a test project
-- [ ] Backend lint/typecheck wired into CI
+- [x] Firestore rules exercised against the emulator: 32 tests in
+      `tests/firestore.rules.test.js` (owner reads, cross-tenant isolation,
+      server-only writes, audit-trail immutability, credential
+      confidentiality, default deny)
+- [x] Backend lint/typecheck wired into CI (`.github/workflows/ci.yml`:
+      `ruff check`, `ruff format --check`, `mypy app tests`, `pytest`)
 - [ ] End-to-end device testing
-- [ ] Deployment configuration for the reminder workers (Cloud Scheduler)
+- [x] Deployment configuration for the reminder workers:
+      [`docs/worker-deployment.md`](docs/worker-deployment.md) plus a cron-ready
+      `scripts/run_reminders.sh` (verified end-to-end against the project)
 
 ## Not implemented, by decision
 Deliberately out of scope for a single-user app. Each would add real

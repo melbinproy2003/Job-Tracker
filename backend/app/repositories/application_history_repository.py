@@ -61,7 +61,10 @@ class ApplicationHistoryRepository:
             data = snap.to_dict() or {}
             data["id"] = snap.id
             items.append(data)
-        items.sort(key=lambda x: x.get("changed_at") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+        items.sort(
+            key=lambda x: x.get("changed_at") or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
         return items
 
     def delete_all(self, user_id: str, application_id: str) -> None:

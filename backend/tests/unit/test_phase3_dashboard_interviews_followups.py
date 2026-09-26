@@ -11,7 +11,11 @@ from app.api.v1 import applications as applications_api
 from app.api.v1 import dashboard as dashboard_api
 from app.api.v1 import followups as followups_api
 from app.api.v1 import interviews as interviews_api
-from app.core.exceptions import FollowUpDuplicateError, InterviewConflictError, InterviewNotFoundError
+from app.core.exceptions import (
+    FollowUpDuplicateError,
+    InterviewConflictError,
+    InterviewNotFoundError,
+)
 from app.main import create_app
 from app.models.enums.activity_type import ActivityType
 from app.models.enums.application_status import ApplicationStatus
@@ -19,7 +23,7 @@ from app.models.enums.interview_status import InterviewStatus
 from app.models.enums.interview_type import InterviewType
 from app.schemas.application import ApplicationCreateRequest, ApplicationStatusUpdateRequest
 from app.schemas.company import CompanyCreateRequest
-from app.schemas.followup import FollowUpCreateRequest, FollowUpUpdateRequest
+from app.schemas.followup import FollowUpCreateRequest
 from app.schemas.interview import InterviewCreateRequest, InterviewUpdateRequest
 from app.services.dashboard.dashboard_service import DashboardService
 from app.services.followups.followup_service import FollowUpService
@@ -296,7 +300,9 @@ def test_api_phase3_endpoints(phase3):
     deps.verify_firebase_id_token = _ok  # type: ignore
     app.dependency_overrides[applications_api.get_application_service] = lambda: phase3["app_svc"]
     app.dependency_overrides[applications_api.get_status_service] = lambda: phase3["status_svc"]
-    app.dependency_overrides[applications_api.get_interview_service] = lambda: phase3["interview_svc"]
+    app.dependency_overrides[applications_api.get_interview_service] = lambda: phase3[
+        "interview_svc"
+    ]
     app.dependency_overrides[applications_api.get_activity_service] = lambda: phase3["activity_svc"]
     app.dependency_overrides[interviews_api.get_interview_service] = lambda: phase3["interview_svc"]
     app.dependency_overrides[followups_api.get_followup_service] = lambda: phase3["followup_svc"]
@@ -308,7 +314,9 @@ def test_api_phase3_endpoints(phase3):
             "u1",
             ApplicationCreateRequest(company_id=company.id, job_title="API Role"),
         )
-        scheduled = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat().replace("+00:00", "Z")
+        scheduled = (
+            (datetime.now(timezone.utc) + timedelta(days=2)).isoformat().replace("+00:00", "Z")
+        )
         iv = client.post(
             f"/api/v1/applications/{created_app.id}/interviews",
             headers={"Authorization": "Bearer token"},

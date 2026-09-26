@@ -20,7 +20,6 @@ from app.schemas.interview import InterviewCreateRequest, InterviewResponse, Int
 from app.services.activities.activity_service import ActivityService
 from app.utils.text import sanitize_text
 
-
 _TYPE_LABELS = {
     InterviewType.PHONE_SCREEN: "Phone Screen",
     InterviewType.HR_INTERVIEW: "HR Interview",
@@ -60,9 +59,7 @@ class InterviewService:
     ):
         self._interviews = interview_repository or InterviewRepository()
         self._apps = application_repository or ApplicationRepository()
-        self._activities = activity_service or ActivityService(
-            application_repository=self._apps
-        )
+        self._activities = activity_service or ActivityService(application_repository=self._apps)
 
     def _app_ids(self, user_id: str) -> list[str]:
         return [a["id"] for a in self._apps.list_all(user_id)]
@@ -162,13 +159,25 @@ class InterviewService:
             rows = [r for r in rows if (r.get("status") or "").upper() == status.upper()]
         if from_date is not None:
             start = _ensure_aware(from_date)
-            rows = [r for r in rows if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) >= start]
+            rows = [
+                r
+                for r in rows
+                if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) >= start
+            ]
         if to_date is not None:
             end = _ensure_aware(to_date)
             # inclusive end-of-day if date-only midnight
-            rows = [r for r in rows if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) <= end]
+            rows = [
+                r for r in rows if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) <= end
+            ]
 
-        rows.sort(key=lambda x: _ensure_aware(x["scheduled_at"]) if x.get("scheduled_at") else datetime.min.replace(tzinfo=timezone.utc))
+        rows.sort(
+            key=lambda x: (
+                _ensure_aware(x["scheduled_at"])
+                if x.get("scheduled_at")
+                else datetime.min.replace(tzinfo=timezone.utc)
+            )
+        )
         return [self._to_response(r) for r in rows]
 
     def get(self, user_id: str, interview_id: str) -> InterviewResponse:
@@ -177,7 +186,9 @@ class InterviewService:
             raise InterviewNotFoundError()
         return self._to_response(found)
 
-    def update(self, user_id: str, interview_id: str, payload: InterviewUpdateRequest) -> InterviewResponse:
+    def update(
+        self, user_id: str, interview_id: str, payload: InterviewUpdateRequest
+    ) -> InterviewResponse:
         found = self._interviews.find_by_id(user_id, interview_id, self._app_ids(user_id))
         if not found:
             raise InterviewNotFoundError()
@@ -185,9 +196,15 @@ class InterviewService:
         application_id = found["application_id"]
         updates = payload.model_dump(exclude_unset=True, exclude={"force"})
         if "type" in updates and updates["type"] is not None:
-            updates["type"] = updates["type"].value if hasattr(updates["type"], "value") else updates["type"]
+            updates["type"] = (
+                updates["type"].value if hasattr(updates["type"], "value") else updates["type"]
+            )
         if "status" in updates and updates["status"] is not None:
-            updates["status"] = updates["status"].value if hasattr(updates["status"], "value") else updates["status"]
+            updates["status"] = (
+                updates["status"].value
+                if hasattr(updates["status"], "value")
+                else updates["status"]
+            )
         if "scheduled_at" in updates and updates["scheduled_at"] is not None:
             updates["scheduled_at"] = _ensure_aware(updates["scheduled_at"])
         for key in ("title", "location", "interviewer_name", "notes"):

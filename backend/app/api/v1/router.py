@@ -12,7 +12,6 @@ from app.api.v1 import (
     interviews,
     notifications,
     resumes,
-    settings,
     users,
 )
 
@@ -27,4 +26,3 @@ api_router.include_router(followups.router, prefix="/followups", tags=["followup
 api_router.include_router(resumes.router, prefix="/resumes", tags=["resumes"])
 api_router.include_router(gmail.router, prefix="/gmail", tags=["gmail"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
-api_router.include_router(settings.router, prefix="/settings", tags=["settings"])

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 from app.models.enums.interview_status import InterviewStatus
 from app.models.enums.notification_type import NotificationType
@@ -87,20 +86,21 @@ class ReminderService:
             scheduled = _ensure_aware(scheduled)
             company = fu.get("company_name") or "Company"
             job = fu.get("job_title") or ""
-            if prefs.get("followup_reminders", True):
-                if scheduled <= now < scheduled + timedelta(minutes=15):
-                    result = self._notifier.create_and_push(
-                        user_id,
-                        type=NotificationType.FOLLOWUP_REMINDER,
-                        title="Follow-up reminder",
-                        body=f"{fu.get('title') or 'Follow-up'} — {company}"
-                        + (f" ({job})" if job else ""),
-                        related_application_id=fu.get("application_id"),
-                        related_followup_id=fu.get("id"),
-                        dedupe_key=f"followup_{fu['id']}_due",
-                    )
-                    if result:
-                        created["followup"] += 1
+            if prefs.get("followup_reminders", True) and (
+                scheduled <= now < scheduled + timedelta(minutes=15)
+            ):
+                result = self._notifier.create_and_push(
+                    user_id,
+                    type=NotificationType.FOLLOWUP_REMINDER,
+                    title="Follow-up reminder",
+                    body=f"{fu.get('title') or 'Follow-up'} — {company}"
+                    + (f" ({job})" if job else ""),
+                    related_application_id=fu.get("application_id"),
+                    related_followup_id=fu.get("id"),
+                    dedupe_key=f"followup_{fu['id']}_due",
+                )
+                if result:
+                    created["followup"] += 1
             if prefs.get("overdue_followups", True):
                 # One overdue notice the day after scheduled date (window)
                 overdue_start = scheduled + timedelta(days=1)

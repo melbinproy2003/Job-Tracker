@@ -44,9 +44,7 @@ class FollowUpService:
     ):
         self._followups = followup_repository or FollowUpRepository()
         self._apps = application_repository or ApplicationRepository()
-        self._activities = activity_service or ActivityService(
-            application_repository=self._apps
-        )
+        self._activities = activity_service or ActivityService(application_repository=self._apps)
 
     def create(self, user_id: str, payload: FollowUpCreateRequest) -> FollowUpResponse:
         app = self._apps.get(user_id, payload.application_id)
@@ -108,10 +106,16 @@ class FollowUpService:
             rows = [r for r in rows if bool(r.get("completed")) is completed]
         if from_date is not None:
             start = _ensure_aware(from_date)
-            rows = [r for r in rows if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) >= start]
+            rows = [
+                r
+                for r in rows
+                if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) >= start
+            ]
         if to_date is not None:
             end = _ensure_aware(to_date)
-            rows = [r for r in rows if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) <= end]
+            rows = [
+                r for r in rows if r.get("scheduled_at") and _ensure_aware(r["scheduled_at"]) <= end
+            ]
         return [self._to_response(r) for r in rows]
 
     def get(self, user_id: str, followup_id: str) -> FollowUpResponse:
@@ -120,7 +124,9 @@ class FollowUpService:
             raise FollowUpNotFoundError()
         return self._to_response(found)
 
-    def update(self, user_id: str, followup_id: str, payload: FollowUpUpdateRequest) -> FollowUpResponse:
+    def update(
+        self, user_id: str, followup_id: str, payload: FollowUpUpdateRequest
+    ) -> FollowUpResponse:
         found = self._followups.get(user_id, followup_id)
         if not found:
             raise FollowUpNotFoundError()

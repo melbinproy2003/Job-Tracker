@@ -10,8 +10,11 @@ foundations, core entities, and engagement; Phase 4 adds notifications, FCM, and
 preferences; Phase 5 adds Gmail email intelligence with mandatory user
 confirmation. Phase 6 (offline) has not started.
 
-Verified: 38 backend tests, 63 Flutter tests, clean `flutter analyze`, and a
-successful `flutter build apk --debug`.
+Verified: 46 backend tests, 68 Flutter tests, clean `ruff check`, `ruff format`,
+`mypy`, and `flutter analyze` (10 known deprecation `info`s, no errors or
+warnings), plus a successful `flutter build apk --debug`. All of these run in CI
+on every push and pull request — see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 Firebase/Google credentials and the iOS Push Notifications capability must be
 configured before end-to-end device testing — see

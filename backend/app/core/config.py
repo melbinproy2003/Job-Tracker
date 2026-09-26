@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     gmail_frontend_success_url: str = "jobtracker://gmail/connected"
     gmail_frontend_error_url: str = "jobtracker://gmail/error"
 
+    # Minimum seconds between two manual/scheduled Gmail syncs for one user.
+    # Each sync costs Gmail API quota against the user's own 403, so the
+    # endpoint is rate limited rather than left open to a looping client.
+    # Set to 0 to disable (e.g. in tests).
+    gmail_sync_cooldown_seconds: int = 60
+    gmail_full_sync_cooldown_seconds: int = 300
+
     log_level: str = "INFO"
 
     @property

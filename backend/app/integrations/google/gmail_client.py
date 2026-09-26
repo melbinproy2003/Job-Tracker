@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-from email.utils import parsedate_to_datetime
 from typing import Any
 
 from google.oauth2.credentials import Credentials

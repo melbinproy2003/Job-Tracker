@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api.v1 import applications as applications_api
 from app.api.v1 import companies as companies_api
-from app.api.v1 import dependencies
 from app.core.exceptions import (
     ApplicationNotFoundError,
     CompanyHasApplicationsError,
@@ -22,7 +20,6 @@ from app.models.enums.application_status import ApplicationStatus
 from app.schemas.application import (
     ApplicationCreateRequest,
     ApplicationStatusUpdateRequest,
-    ApplicationUpdateRequest,
 )
 from app.schemas.company import CompanyCreateRequest
 from app.services.applications.application_service import ApplicationService
@@ -37,7 +34,13 @@ class InMemoryCompanyRepo:
     def create(self, user_id: str, data: dict[str, Any]) -> dict[str, Any]:
         self._data.setdefault(user_id, {})
         cid = f"c{len(self._data[user_id]) + 1}"
-        payload = {**data, "id": cid, "user_id": user_id, "created_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)}
+        payload = {
+            **data,
+            "id": cid,
+            "user_id": user_id,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
         self._data[user_id][cid] = payload
         return payload
 
@@ -74,7 +77,14 @@ class InMemoryAppRepo:
         self._data.setdefault(user_id, {})
         aid = f"a{len(self._data[user_id]) + 1}"
         now = datetime.now(timezone.utc)
-        payload = {**data, "id": aid, "user_id": user_id, "created_at": now, "updated_at": now, "last_updated_at": now}
+        payload = {
+            **data,
+            "id": aid,
+            "user_id": user_id,
+            "created_at": now,
+            "updated_at": now,
+            "last_updated_at": now,
+        }
         self._data[user_id][aid] = payload
         return payload
 
@@ -176,7 +186,14 @@ class InMemoryInterviewRepo:
         bucket = self._bucket(user_id, application_id)
         iid = f"i{len(bucket) + 1}"
         now = datetime.now(timezone.utc)
-        payload = {**data, "id": iid, "user_id": user_id, "application_id": application_id, "created_at": now, "updated_at": now}
+        payload = {
+            **data,
+            "id": iid,
+            "user_id": user_id,
+            "application_id": application_id,
+            "created_at": now,
+            "updated_at": now,
+        }
         bucket[iid] = payload
         return payload
 
