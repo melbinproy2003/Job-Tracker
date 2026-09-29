@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, production, development]
   pull_request:
   workflow_dispatch:
 
@@ -12,8 +12,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      firestore: ${{ steps.filter.outputs.firestore }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/job_tracker/**'
+            firestore:
+              - 'firestore.rules'
+              - 'firestore.indexes.json'
+              - 'firebase.json'
+              - '.firebaserc'
+              - 'tests/**'
+              - 'package.json'
+              - 'package-lock.json'
+
   backend:
     name: Backend (lint, types, tests)
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -45,6 +76,10 @@ jobs:
 
   frontend:
     name: Frontend (format, analyze, test)
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,7 +100,7 @@ jobs:
         run: dart format --output=none --set-exit-if-changed lib test
 
       - name: Analyze
-        # Fails on errors and warnings. The 10 known `info`-level deprecation
+        # Fails on errors and warnings. The known `info`-level deprecation
         # notices do not fail the build; remove this filter once they are fixed.
         run: flutter analyze --no-fatal-infos
 
@@ -74,6 +109,10 @@ jobs:
 
   firestore-rules:
     name: Firestore rules (emulator)
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.firestore == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

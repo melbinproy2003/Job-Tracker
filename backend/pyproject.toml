@@ -5,6 +5,11 @@ description = "FastAPI backend for Job Application Tracker"
 requires-python = ">=3.11"
 readme = "README.md"
 
+# Vercel zero-config FastAPI: load the ASGI app from this module:variable.
+# Project Root Directory in Vercel must be `backend`.
+[tool.vercel]
+entrypoint = "app.main:app"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
