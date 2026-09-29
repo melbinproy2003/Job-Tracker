@@ -63,7 +63,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - .env
+    # `.env` is intentionally absent: it is gitignored, so a fresh checkout
+    # never has it and declaring it fails `flutter analyze`. The local file is
+    # read from disk instead (see lib/core/constants/env_file_loader.dart).
     - .env.example
     - assets/images/
     - assets/icons/

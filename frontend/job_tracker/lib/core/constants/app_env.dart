@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import 'env_file_loader.dart';
+
 /// Runtime config from `.env` (loaded via flutter_dotenv).
 ///
-/// Priority: `--dart-define=KEY=value` → `.env` → `.env.example` → defaults.
+/// Priority: `--dart-define=KEY=value` → local `.env` → `.env.example` → defaults.
 abstract final class AppEnv {
   static const _defineApiBaseUrl = String.fromEnvironment('API_BASE_URL');
   static const _defineGoogleServerClientId = String.fromEnvironment(
@@ -13,16 +15,23 @@ abstract final class AppEnv {
     'FIREBASE_PROJECT_ID',
   );
 
+  static Map<String, String> _localEnv = const {};
+
   static Future<void> load() async {
-    try {
-      await dotenv.load(fileName: '.env');
-    } catch (e) {
-      debugPrint('Could not load .env ($e); falling back to .env.example');
-      await dotenv.load(fileName: '.env.example', isOptional: true);
+    final contents = readLocalEnvFile('.env');
+    if (contents == null) {
+      debugPrint('No local .env found; using .env.example defaults.');
+      _localEnv = const {};
+    } else {
+      _localEnv = const Parser().parse(contents.split('\n'));
     }
+    // Committed asset, so it is always present in a fresh checkout.
+    await dotenv.load(fileName: '.env.example', isOptional: true);
   }
 
   static String _read(String key, {String fallback = ''}) {
+    final local = _localEnv[key]?.trim();
+    if (local != null && local.isNotEmpty) return local;
     final value = dotenv.maybeGet(key)?.trim();
     if (value == null || value.isEmpty) return fallback;
     return value;
