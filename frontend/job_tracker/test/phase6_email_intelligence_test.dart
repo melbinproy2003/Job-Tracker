@@ -62,10 +62,7 @@ void main() {
         durationMinutes: 45,
         location: 'Zoom',
       );
-      final confirm = GmailMatchConfirm(
-        applicationId: 'a1',
-        interview: draft,
-      );
+      final confirm = GmailMatchConfirm(applicationId: 'a1', interview: draft);
       expect(confirm.forceInterview, isFalse);
       final json = draft.toJson();
       expect(json['scheduled_at'], contains('2026-09-29'));
@@ -95,7 +92,8 @@ void main() {
         threadId: 't1',
         matchStatus: GmailMatchStatus.matched,
         interviewConflict: true,
-        conflictMessage: 'You already have an interview scheduled during this time.',
+        conflictMessage:
+            'You already have an interview scheduled during this time.',
       );
       expect(result.interviewConflict, isTrue);
       expect(result.interviewCreated, isFalse);

@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 
 from app.repositories.gmail_message_repository import GmailMessageRepository
 
-
 DEFAULT_RETAIN_DAYS = 90
 
 
@@ -21,9 +20,7 @@ class GmailRetentionService:
     def __init__(self, message_repository: GmailMessageRepository | None = None):
         self._messages = message_repository or GmailMessageRepository()
 
-    def clear_old_bodies(
-        self, user_id: str, *, retain_days: int = DEFAULT_RETAIN_DAYS
-    ) -> dict:
+    def clear_old_bodies(self, user_id: str, *, retain_days: int = DEFAULT_RETAIN_DAYS) -> dict:
         cutoff = datetime.now(timezone.utc) - timedelta(days=max(retain_days, 1))
         cleared = 0
         for msg in self._messages.list(user_id):

@@ -77,15 +77,11 @@ class GmailOAuthService:
             )
 
         if not code or not state:
-            raise ValidationError(
-                "Missing OAuth code or state.", code="INVALID_OAUTH_CALLBACK"
-            )
+            raise ValidationError("Missing OAuth code or state.", code="INVALID_OAUTH_CALLBACK")
 
         pending = self._states.consume(state)
         if not pending:
-            raise ValidationError(
-                "Invalid or expired OAuth state.", code="INVALID_OAUTH_STATE"
-            )
+            raise ValidationError("Invalid or expired OAuth state.", code="INVALID_OAUTH_STATE")
         if not pending.code_verifier:
             # Should be unreachable after consume() validation; keep explicit.
             raise ValidationError(
@@ -94,9 +90,7 @@ class GmailOAuthService:
             )
 
         try:
-            tokens = self._oauth.exchange_code(
-                code, code_verifier=pending.code_verifier
-            )
+            tokens = self._oauth.exchange_code(code, code_verifier=pending.code_verifier)
         except Exception as exc:
             # Log type + message (no tokens/codes). Warning often means oauthlib
             # scope mismatch when Google returns extra granted scopes.

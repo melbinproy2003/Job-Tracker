@@ -14,8 +14,9 @@ import os
 import secrets
 import string
 from base64 import urlsafe_b64encode
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -36,9 +37,9 @@ _PKCE_ALPHABET = string.ascii_letters + string.digits + "-._~"
 
 
 def generate_code_verifier(length: int = 64) -> str:
-    """Cryptographically secure PKCE code_verifier (43–128 chars)."""
+    """Cryptographically secure PKCE code_verifier (43-128 chars)."""
     if length < 43 or length > 128:
-        raise ValueError("code_verifier length must be 43–128")
+        raise ValueError("code_verifier length must be 43-128")
     return "".join(secrets.choice(_PKCE_ALPHABET) for _ in range(length))
 
 
@@ -69,9 +70,7 @@ def _relax_oauthlib_token_scope() -> Iterator[None]:
 
 
 class GoogleOAuthClient:
-    def build_authorization_url(
-        self, state: str, *, code_verifier: str
-    ) -> str:
+    def build_authorization_url(self, state: str, *, code_verifier: str) -> str:
         """Build Google consent URL including PKCE ``code_challenge`` (S256)."""
         if not code_verifier:
             raise ValueError("code_verifier is required for PKCE authorization")

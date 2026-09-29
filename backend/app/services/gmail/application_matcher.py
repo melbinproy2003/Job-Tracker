@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 
 from app.utils.email import company_name_from_domain, extract_domain, normalize_email
 
-
 _REASON_LABELS = {
     "thread_match": "Existing Gmail thread linked",
     "recruiter_match": "Recruiter email matches",
@@ -91,13 +90,16 @@ class ApplicationMatcher:
                     reason_codes.append("job_title_match")
                 # Subject similarity (secondary)
                 subject_hits = sum(1 for t in tokens if t in subject)
-                if subject_hits >= max(1, len(tokens) // 2) and "job_title_match" not in reason_codes:
+                half = max(1, len(tokens) // 2)
+                if subject_hits >= half and "job_title_match" not in reason_codes:
                     score += 10
                     reason_codes.append("subject_similarity")
 
             if job_url:
                 try:
-                    host = urlparse(job_url if "://" in job_url else f"https://{job_url}").netloc.lower()
+                    host = urlparse(
+                        job_url if "://" in job_url else f"https://{job_url}"
+                    ).netloc.lower()
                 except Exception:
                     host = ""
                 if host and (host in hay or host.replace("www.", "") in hay):
@@ -153,7 +155,8 @@ class ApplicationMatcher:
         subject = message.get("subject") or ""
         # Heuristic: strip common prefixes then take trailing role-like segment.
         job_title = subject
-        for sep in (" - ", " – ", " — ", ": "):
+        # Include en/em dashes as Unicode escapes (RUF001).
+        for sep in (" - ", " \u2013 ", " \u2014 ", ": "):
             if sep in subject:
                 parts = [p.strip() for p in subject.split(sep) if p.strip()]
                 if len(parts) >= 2:

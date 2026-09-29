@@ -98,8 +98,8 @@ def test_connect_stores_verifier_and_auth_url_includes_challenge(monkeypatch):
 
     svc = GmailOAuthService(
         account_repository=MagicMock(),
-        state_repository=states,  # type: ignore[arg-type]
-        oauth_client=_FakeOAuth(),  # type: ignore[arg-type]
+        state_repository=states,
+        oauth_client=_FakeOAuth(),
     )
     # Bypass config check if client id already set in env; otherwise patch settings.
     monkeypatch.setattr(
@@ -149,8 +149,8 @@ def test_callback_passes_stored_verifier_to_token_exchange(monkeypatch):
 
     svc = GmailOAuthService(
         account_repository=accounts,
-        state_repository=states,  # type: ignore[arg-type]
-        oauth_client=_FakeOAuth(),  # type: ignore[arg-type]
+        state_repository=states,
+        oauth_client=_FakeOAuth(),
     )
 
     from app.services.gmail import gmail_oauth_service as mod
@@ -186,8 +186,8 @@ def test_callback_rejects_missing_verifier_in_state():
 
     svc = GmailOAuthService(
         account_repository=MagicMock(),
-        state_repository=states,  # type: ignore[arg-type]
-        oauth_client=_FakeOAuth(),  # type: ignore[arg-type]
+        state_repository=states,
+        oauth_client=_FakeOAuth(),
     )
     with pytest.raises(ValidationError) as exc:
         svc.handle_callback(code="auth-code", state="st2")
@@ -198,7 +198,7 @@ def test_callback_rejects_expired_and_used_and_invalid_state():
     states = _MemoryStateRepo()
     svc = GmailOAuthService(
         account_repository=MagicMock(),
-        state_repository=states,  # type: ignore[arg-type]
+        state_repository=states,
         oauth_client=MagicMock(),
     )
 
@@ -230,7 +230,7 @@ def test_callback_rejects_expired_and_used_and_invalid_state():
 def test_callback_user_cancelled():
     svc = GmailOAuthService(
         account_repository=MagicMock(),
-        state_repository=_MemoryStateRepo(),  # type: ignore[arg-type]
+        state_repository=_MemoryStateRepo(),
         oauth_client=MagicMock(),
     )
     with pytest.raises(ValidationError) as exc:
@@ -280,7 +280,7 @@ def test_exchange_code_relaxes_oauthlib_scope_env(monkeypatch):
 def test_frontend_redirect_never_leaks_raw_errors():
     svc = GmailOAuthService(
         account_repository=MagicMock(),
-        state_repository=_MemoryStateRepo(),  # type: ignore[arg-type]
+        state_repository=_MemoryStateRepo(),
         oauth_client=MagicMock(),
     )
     from unittest.mock import MagicMock as M

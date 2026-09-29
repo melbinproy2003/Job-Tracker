@@ -150,8 +150,7 @@ class _Body extends ConsumerWidget {
               ],
             ),
           ),
-        if (thread.detectedCategory != null ||
-            thread.matchedSignals.isNotEmpty)
+        if (thread.detectedCategory != null || thread.matchedSignals.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
             child: Column(

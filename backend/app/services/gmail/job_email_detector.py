@@ -20,7 +20,13 @@ _CATEGORY_RULES: list[tuple[EmailCategory, ApplicationStatus | None, list[str]]]
     (
         EmailCategory.OFFER,
         ApplicationStatus.OFFER,
-        [r"offer letter", r"job offer", r"employment offer", r"pleased to offer", r"extend an offer"],
+        [
+            r"offer letter",
+            r"job offer",
+            r"employment offer",
+            r"pleased to offer",
+            r"extend an offer",
+        ],
     ),
     (
         EmailCategory.REJECTION,
@@ -53,7 +59,14 @@ _CATEGORY_RULES: list[tuple[EmailCategory, ApplicationStatus | None, list[str]]]
     (
         EmailCategory.CODING_TEST,
         ApplicationStatus.TECHNICAL_ROUND,
-        [r"coding test", r"coding challenge", r"online assessment", r"hackerrank", r"codility", r"leetcode"],
+        [
+            r"coding test",
+            r"coding challenge",
+            r"online assessment",
+            r"hackerrank",
+            r"codility",
+            r"leetcode",
+        ],
     ),
     (
         EmailCategory.TECHNICAL_INTERVIEW,
@@ -109,7 +122,11 @@ _CATEGORY_RULES: list[tuple[EmailCategory, ApplicationStatus | None, list[str]]]
     (
         EmailCategory.FOLLOW_UP,
         None,
-        [r"following up on your application", r"checking in on your candidacy", r"any update on your application"],
+        [
+            r"following up on your application",
+            r"checking in on your candidacy",
+            r"any update on your application",
+        ],
     ),
     # Generic interview invitation (after specific types).
     (
@@ -268,7 +285,9 @@ class JobEmailDetector:
 
         return {
             "title": message.get("subject") or itype.value.replace("_", " ").title(),
-            "scheduled_at": scheduled_at.isoformat().replace("+00:00", "Z") if scheduled_at else None,
+            "scheduled_at": scheduled_at.isoformat().replace("+00:00", "Z")
+            if scheduled_at
+            else None,
             "duration_minutes": 60 if scheduled_at else None,
             "meeting_url": meeting_url,
             "location": None,
@@ -280,9 +299,7 @@ class JobEmailDetector:
             "confidence": conf,
         }
 
-    def _parse_scheduled_at(
-        self, text: str, received_at: datetime | None
-    ) -> datetime | None:
+    def _parse_scheduled_at(self, text: str, received_at: datetime | None) -> datetime | None:
         """Best-effort local-wall-time parse → UTC. Returns None if ambiguous."""
         date_match = re.search(
             r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(\d{1,2})"
@@ -290,13 +307,12 @@ class JobEmailDetector:
             text,
             re.IGNORECASE,
         )
-        time_match = re.search(
-            r"\b(\d{1,2}):(\d{2})\s*(am|pm)?\b", text, re.IGNORECASE
-        )
+        time_match = re.search(r"\b(\d{1,2}):(\d{2})\s*(am|pm)?\b", text, re.IGNORECASE)
         if not date_match:
             return None
 
         month_raw = date_match.group(1).lower()[:3]
+        month: int | None
         if month_raw == "sep":
             month = 9
         else:

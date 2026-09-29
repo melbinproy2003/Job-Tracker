@@ -22,8 +22,8 @@ from app.schemas.gmail import (
     GmailRetentionCleanupResponse,
     GmailSyncRequest,
     GmailSyncResponse,
-    GmailTimelineEvent,
     GmailThreadResponse,
+    GmailTimelineEvent,
 )
 from app.services.gmail.gmail_service import GmailService
 

@@ -162,9 +162,7 @@ class GmailRemoteDataSource {
         ApiEndpoints.gmailApplicationTimeline(applicationId),
       );
       return (response.data ?? [])
-          .map(
-            (e) => GmailTimelineEvent.fromJson(e as Map<String, dynamic>),
-          )
+          .map((e) => GmailTimelineEvent.fromJson(e as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
       ApiException.throwFromDio(e);

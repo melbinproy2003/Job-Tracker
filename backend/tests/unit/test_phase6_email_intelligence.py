@@ -5,13 +5,11 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
 from app.core.exceptions import InterviewConflictError
 from app.models.enums.gmail_match_status import GmailMatchStatus
-from app.models.enums.interview_type import InterviewType
 from app.schemas.gmail import GmailMatchConfirmRequest, InterviewSuggestion
 from app.services.gmail.application_matcher import ApplicationMatcher
 from app.services.gmail.gmail_retention_service import GmailRetentionService
@@ -84,7 +82,9 @@ class _AppRepo:
         return None
 
     def list_all(self, user_id: str):
-        return [{"id": "a1", "company_name": "ABC Technologies", "job_title": "Junior Python Developer"}]
+        return [
+            {"id": "a1", "company_name": "ABC Technologies", "job_title": "Junior Python Developer"}
+        ]
 
 
 class _StatusSpy:

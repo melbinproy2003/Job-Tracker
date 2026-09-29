@@ -28,8 +28,8 @@ from app.schemas.gmail import (
     GmailMatchConfirmRequest,
     GmailMatchResponse,
     GmailMessageResponse,
-    GmailTimelineEvent,
     GmailThreadResponse,
+    GmailTimelineEvent,
     InterviewSuggestion,
     MatchCandidate,
 )
@@ -71,9 +71,11 @@ def _parse_interview_suggestion(raw: Any) -> InterviewSuggestion | None:
     try:
         return InterviewSuggestion.model_validate(data)
     except Exception:
+        raw_scheduled = data.get("scheduled_at")
+        scheduled_at = raw_scheduled if isinstance(raw_scheduled, datetime) else None
         return InterviewSuggestion(
             title=data.get("title"),
-            scheduled_at=data.get("scheduled_at") if isinstance(data.get("scheduled_at"), datetime) else None,
+            scheduled_at=scheduled_at,
             duration_minutes=data.get("duration_minutes"),
             meeting_url=data.get("meeting_url"),
             location=data.get("location"),
@@ -127,20 +129,14 @@ class GmailService:
         oauth_error: str | None = None,
     ) -> str:
         try:
-            result = self._oauth.handle_callback(
-                code=code, state=state, oauth_error=oauth_error
-            )
+            result = self._oauth.handle_callback(code=code, state=state, oauth_error=oauth_error)
             return self._oauth.frontend_redirect(success=True, email=result["email"])
         except ValidationError as exc:
             logger.info("Gmail OAuth validation failed: %s", exc.code)
-            return self._oauth.frontend_redirect(
-                success=False, error=exc.code.lower()
-            )
+            return self._oauth.frontend_redirect(success=False, error=exc.code.lower())
         except AppError as exc:
             logger.warning("Gmail OAuth failed: %s", exc.code)
-            return self._oauth.frontend_redirect(
-                success=False, error=exc.code.lower()
-            )
+            return self._oauth.frontend_redirect(success=False, error=exc.code.lower())
         except Exception as exc:
             logger.exception("Gmail OAuth unexpected error: %s", type(exc).__name__)
             return self._oauth.frontend_redirect(success=False, error="oauth_failed")
@@ -239,7 +235,8 @@ class GmailService:
 
         applied_actions = set(thread.get("applied_actions") or [])
         link_key = _action_key("link", payload.application_id)
-        already = link_key in applied_actions and thread.get("match_status") == GmailMatchStatus.MATCHED.value
+        matched = thread.get("match_status") == GmailMatchStatus.MATCHED.value
+        already = link_key in applied_actions and matched
 
         applied = False
         interview_created = False
@@ -258,8 +255,13 @@ class GmailService:
                     "suggested_application_id": payload.application_id,
                 },
             )
-            for msg in self._messages.list(user_id, thread_id=thread.get("gmail_thread_id")):
-                self._messages.update(user_id, msg["id"], {"application_id": payload.application_id})
+            gmail_tid = thread.get("gmail_thread_id")
+            for msg in self._messages.list(user_id, thread_id=gmail_tid):
+                self._messages.update(
+                    user_id,
+                    msg["id"],
+                    {"application_id": payload.application_id},
+                )
             self._activities.record(
                 user_id,
                 payload.application_id,
@@ -280,9 +282,7 @@ class GmailService:
             )
 
         if payload.confirm_status is not None:
-            status_key = _action_key(
-                "status", payload.application_id, payload.confirm_status.value
-            )
+            status_key = _action_key("status", payload.application_id, payload.confirm_status.value)
             if status_key not in applied_actions:
                 self._status.change_status(
                     user_id,
@@ -310,7 +310,9 @@ class GmailService:
                 scheduled = datetime.fromisoformat(scheduled.replace("Z", "+00:00"))
             sched_key = scheduled.astimezone(timezone.utc).strftime("%Y%m%dT%H%M")
             itype_raw = iv.get("interview_type") or iv.get("type") or InterviewType.OTHER.value
-            interview_key = _action_key("interview", payload.application_id, f"{itype_raw}:{sched_key}")
+            interview_key = _action_key(
+                "interview", payload.application_id, f"{itype_raw}:{sched_key}"
+            )
 
             if interview_key in applied_actions:
                 interview_created = False
@@ -425,11 +427,15 @@ class GmailService:
         if include_candidates and not candidates_raw and t.get("is_job_related"):
             # Live recompute for detail view.
             msgs = self._messages.list(user_id, thread_id=t.get("gmail_thread_id"))
-            sample = msgs[0] if msgs else {
-                "subject": t.get("subject"),
-                "snippet": t.get("snippet"),
-                "from_address": (t.get("participants") or [None])[0],
-            }
+            sample = (
+                msgs[0]
+                if msgs
+                else {
+                    "subject": t.get("subject"),
+                    "snippet": t.get("snippet"),
+                    "from_address": (t.get("participants") or [None])[0],
+                }
+            )
             apps = self._apps.list_all(user_id)
             candidates_raw = self._matcher.find_candidates(
                 message=sample,
@@ -453,7 +459,7 @@ class GmailService:
             for c in candidates_raw
         ]
 
-        draft = None
+        draft: ApplicationDraftFromEmail | dict[str, Any] | None = None
         if isinstance(draft_raw, dict):
             try:
                 draft = ApplicationDraftFromEmail.model_validate(draft_raw)
