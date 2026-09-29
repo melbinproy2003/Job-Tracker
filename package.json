@@ -1,0 +1,28 @@
+{
+  "name": "job-tracker-rules-tests",
+  "version": "1.0.0",
+  "description": "Firestore security rules tests for Job-Tracker (run against the emulator).",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:rules": "firebase emulators:exec --only firestore \"jest\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/melbinproy2003/Job-Tracker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/melbinproy2003/Job-Tracker/issues"
+  },
+  "homepage": "https://github.com/melbinproy2003/Job-Tracker#readme",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^13.35.1",
+    "jest": "^29.7.0"
+  },
+  "private": true
+}

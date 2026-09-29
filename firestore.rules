@@ -1,0 +1,113 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ---------------------------------------------------------------------
+    // Client access policy
+    //
+    // FastAPI is the single write path for all domain data. The Admin SDK
+    // bypasses these rules, so denying client writes costs the app nothing
+    // while guaranteeing that invariants enforced server-side cannot be
+    // skipped from a compromised or malicious client.
+    //
+    // Specifically this prevents a client from:
+    //   * changing an application status without appending a
+    //     status_history entry and an activity record,
+    //   * mutating or deleting the append-only status_history audit trail,
+    //   * writing arbitrary fields onto its own profile document.
+    //
+    // Clients receive owner-scoped read access so they can use the
+    // notification inbox and (when Phase 7 lands) an offline cache.
+    //
+    // Phase 7 note: reintroducing an offline write path will require adding
+    // a tightly scoped, field-validated rule here — not a blanket `write`.
+    // ---------------------------------------------------------------------
+
+    match /users/{userId} {
+      // Profile is server-authored (email, display_name, last_login_at).
+      allow read: if isOwner(userId);
+      allow write: if false;
+
+      match /companies/{companyId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      match /followups/{followupId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      match /applications/{applicationId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+
+        // Append-only audit trail. Readable for the status timeline, never
+        // client-writable.
+        match /status_history/{historyId} {
+          allow read: if isOwner(userId);
+          allow write: if false;
+        }
+
+        match /interviews/{interviewId} {
+          allow read: if isOwner(userId);
+          allow write: if false;
+        }
+
+        match /activities/{activityId} {
+          allow read: if isOwner(userId);
+          allow write: if false;
+        }
+      }
+
+      // Device tokens and the in-app notification inbox. Registration,
+      // read-state changes and deletion all go through FastAPI.
+      match /devices/{deviceId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      match /settings/{docId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
+      // Gmail credentials must NEVER be readable or writable from clients.
+      match /gmail_accounts/{accountId} {
+        allow read, write: if false;
+      }
+
+      match /gmail_threads/{threadId} {
+        allow read, write: if false;
+      }
+
+      match /gmail_messages/{messageId} {
+        allow read, write: if false;
+      }
+    }
+
+    // OAuth CSRF state is server-only: a client that could read or forge this
+    // document could hijack the Gmail connect flow.
+    match /_oauth_states/{stateId} {
+      allow read, write: if false;
+    }
+
+    // Default deny for anything not explicitly granted above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

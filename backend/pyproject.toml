@@ -1,0 +1,71 @@
+[project]
+name = "job-application-tracker-api"
+version = "0.1.0"
+description = "FastAPI backend for Job Application Tracker"
+requires-python = ">=3.11"
+readme = "README.md"
+
+# Vercel zero-config FastAPI: load the ASGI app from this module:variable.
+# Project Root Directory in Vercel must be `backend`.
+[tool.vercel]
+entrypoint = "app.main:app"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Bug-catching rules only. Deliberately excludes the purely stylistic families
+# (COM, Q, D, ANN, ...) — churn without defect prevention.
+select = ["E", "F", "I", "B", "SIM", "PIE", "RUF", "UP", "C4", "RET", "ARG"]
+ignore = [
+    # `timezone.utc` is correct and readable; `datetime.UTC` is the same value
+    # behind a shorter alias. Rewriting ~70 call sites buys nothing.
+    "UP017",
+    # FastAPI's dependency-injection idiom *is* a call in a default argument.
+    "B008",
+    # Handlers and workers intentionally catch broad exceptions to log-and-
+    # degrade; a narrow catch would turn a partial failure into a crash.
+    "BLE001",
+    "ARG001", # FastAPI injects unused-looking params via Depends.
+    "ARG002",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately reach for broad assertions, unused unpackings, and
+# fixture/method-parameter shadowing (`def test(fixture)`), which ruff reads as
+# a redefinition. Fakes that stand in for a class method keep the real
+# signature, so their arguments are unused by design.
+"tests/*" = [
+    "B017",
+    "RUF059",
+    "ARG001",
+    "ARG002",
+    "ARG005",
+    "F811",
+    "SIM117",
+]
+
+[tool.mypy]
+python_version = "3.11"
+# The Firestore/Google SDKs ship incomplete stubs; untyped call sites are
+# expected. This checks our own annotations, not the ecosystem's.
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# Tests are type-checked, with one deliberate exception: the in-memory fakes
+# are duck-typed stand-ins that satisfy the repository interfaces at runtime
+# but do not nominally subclass the ABCs. Suppressing only `arg-type` keeps
+# every other check live for test code. Making the fakes real subclasses is
+# the proper follow-up.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["arg-type"]
