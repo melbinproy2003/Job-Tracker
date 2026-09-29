@@ -36,9 +36,9 @@ class _GmailSettingsScreenState extends ConsumerState<GmailSettingsScreen> {
         _toast('Could not open the browser.');
         return;
       }
-      // The browser leaves the app; on return the account list is re-read so
-      // the connected state (or the failure) is reflected.
-      _toast('Complete the Google consent screen, then return here.');
+      // Google redirects to FastAPI, then to jobtracker://gmail/connected.
+      // GmailOAuthDeepLinkHandler refreshes accounts when that link arrives.
+      _toast('Complete Google consent — you will return to the app.');
     } on ApiException catch (error) {
       _toast(error.message);
     } catch (_) {

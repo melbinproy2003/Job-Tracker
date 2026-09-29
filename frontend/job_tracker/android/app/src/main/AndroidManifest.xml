@@ -25,6 +25,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Gmail OAuth return: jobtracker://gmail/connected (and /error).
+                 Tokens are never in this URL — only a completion signal. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="jobtracker"
+                    android:host="gmail" />
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

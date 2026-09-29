@@ -71,6 +71,13 @@ class _ApplicationMatchCardState extends State<ApplicationMatchCard> {
     final linkedId = widget.thread.applicationId;
     if (linkedId != null && linkedId.isNotEmpty) return linkedId;
     if (widget.candidates.isEmpty) return null;
+    final ranked = widget.thread.matchCandidates;
+    if (ranked.isNotEmpty) {
+      final best = ranked.first;
+      if (!best.band.isReliable) return null;
+      final exists = widget.candidates.any((a) => a.id == best.applicationId);
+      if (exists) return best.applicationId;
+    }
     if (!MatchConfidence.fromScore(widget.thread.matchConfidence).isReliable) {
       return null;
     }
@@ -128,6 +135,13 @@ class _ApplicationMatchCardState extends State<ApplicationMatchCard> {
             else
               Column(
                 children: candidates.map((app) {
+                  MatchCandidate? ranked;
+                  for (final c in thread.matchCandidates) {
+                    if (c.applicationId == app.id) {
+                      ranked = c;
+                      break;
+                    }
+                  }
                   return RadioListTile<String>(
                     value: app.id,
                     // ignore: deprecated_member_use
@@ -141,10 +155,33 @@ class _ApplicationMatchCardState extends State<ApplicationMatchCard> {
                       app.company.name,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    subtitle: Text(app.jobTitle),
+                    subtitle: Text(
+                      ranked == null || ranked.reasons.isEmpty
+                          ? app.jobTitle
+                          : '${app.jobTitle}\n${ranked.reasons.take(2).join(' · ')}'
+                                '${ranked.confidence > 0 ? ' (${ranked.band.label})' : ''}',
+                    ),
+                    isThreeLine: ranked != null && ranked.reasons.isNotEmpty,
                   );
                 }).toList(),
               ),
+            if (thread.detectedCategory != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Detected: ${thread.detectedCategory!.replaceAll('_', ' ')}'
+                '${thread.detectionConfidence != null ? ' (${(thread.detectionConfidence! * 100).round()}%)' : ''}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (thread.matchedSignals.isNotEmpty)
+                Text(
+                  'Signals: ${thread.matchedSignals.take(4).join(', ')}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
             if (thread.matchConfidence != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -219,6 +256,10 @@ class _ApplicationMatchCardState extends State<ApplicationMatchCard> {
             ),
             if (_selectedId == null) ...[
               const SizedBox(height: 12),
+              if (thread.applicationDraft != null) ...[
+                _DiscoveryDraft(draft: thread.applicationDraft!),
+                const SizedBox(height: 8),
+              ],
               TextButton.icon(
                 onPressed: widget.busy
                     ? null
@@ -234,11 +275,12 @@ class _ApplicationMatchCardState extends State<ApplicationMatchCard> {
   }
 
   void _promptCreateApplication(BuildContext context) {
-    // The user must create the application first; the new thread is resolved
-    // from the applications list on the next refresh.
+    // Draft fields are shown above; the user confirms create on the add form.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Create the application first, then link this email.'),
+        content: Text(
+          'Create the application from the draft, then return to link this email.',
+        ),
       ),
     );
   }
@@ -313,6 +355,8 @@ class _InterviewPreview extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           if (suggestion.title != null) Text(suggestion.title!),
+          if (suggestion.resolvedType != null)
+            Text(suggestion.resolvedType!.replaceAll('_', ' ')),
           if (at != null) Text(DateFormat.yMMMd().add_jm().format(at)),
           if (suggestion.durationMinutes != null)
             Text('${suggestion.durationMinutes} minutes'),
@@ -323,6 +367,50 @@ class _InterviewPreview extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall,
             ),
+          if ((suggestion.location ?? '').isNotEmpty)
+            Text(suggestion.location!),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscoveryDraft extends StatelessWidget {
+  const _DiscoveryDraft({required this.draft});
+  final ApplicationDraftFromEmail draft;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Suggested new application',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if ((draft.companyName ?? '').isNotEmpty)
+            Text('Company: ${draft.companyName}'),
+          if ((draft.jobTitle ?? '').isNotEmpty)
+            Text('Role: ${draft.jobTitle}'),
+          if ((draft.recruiterEmail ?? '').isNotEmpty)
+            Text('From: ${draft.recruiterEmail}'),
+          Text(
+            'Nothing is created until you confirm on the add form.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );

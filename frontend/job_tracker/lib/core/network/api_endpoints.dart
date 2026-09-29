@@ -40,5 +40,9 @@ abstract final class ApiEndpoints {
       '/api/v1/gmail/matches/$threadId/confirm';
   static String gmailMatchIgnore(String threadId) =>
       '/api/v1/gmail/matches/$threadId/ignore';
+  static String gmailMatchUnlink(String threadId) =>
+      '/api/v1/gmail/matches/$threadId/unlink';
+  static String gmailApplicationTimeline(String applicationId) =>
+      '/api/v1/gmail/applications/$applicationId/timeline';
   static String gmailAccount(String id) => '/api/v1/gmail/accounts/$id';
 }

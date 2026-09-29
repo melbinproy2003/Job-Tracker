@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/constants/scaffold_messenger_key.dart';
 import '../features/authentication/presentation/controllers/auth_controller.dart';
+import '../features/gmail/providers/gmail_oauth_deep_link_handler.dart';
 import '../features/notifications/providers/notifications_providers.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -30,6 +32,10 @@ class _JobTrackerAppState extends ConsumerState<JobTrackerApp> {
       await ref
           .read(notificationServiceProvider)
           .initialize(onTap: handler.handleExternalPayload);
+
+      // Gmail OAuth mobile return (jobtracker://gmail/connected). Must run
+      // after auth so account refresh can call FastAPI with a token.
+      await ref.read(gmailOAuthDeepLinkBootstrapProvider.future);
     });
   }
 
@@ -41,6 +47,7 @@ class _JobTrackerAppState extends ConsumerState<JobTrackerApp> {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       routerConfig: router,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
     );
   }

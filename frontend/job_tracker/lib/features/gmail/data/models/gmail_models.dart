@@ -54,9 +54,19 @@ class GmailThreadModel {
       applicationId = json['application_id'] as String?,
       matchStatus = GmailMatchStatus.fromApi(json['match_status']?.toString()),
       isJobRelated = json['is_job_related'] as bool? ?? false,
+      detectedCategory = json['detected_category'] as String?,
+      detectionConfidence = (json['detection_confidence'] as num?)?.toDouble(),
+      matchedSignals =
+          (json['matched_signals'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[],
       suggestedStatus = _optionalStatus(json['suggested_status']),
       matchConfidence = (json['match_confidence'] as num?)?.toInt(),
-      interviewSuggestion = _interview(json['interview_suggestion']);
+      matchConfidenceLabel = json['match_confidence_label'] as String?,
+      interviewSuggestion = _interview(json['interview_suggestion']),
+      matchCandidates = _candidates(json['match_candidates']),
+      applicationDraft = _draft(json['application_draft']);
 
   final String id;
   final String gmailThreadId;
@@ -67,13 +77,32 @@ class GmailThreadModel {
   final String? applicationId;
   final GmailMatchStatus matchStatus;
   final bool isJobRelated;
+  final String? detectedCategory;
+  final double? detectionConfidence;
+  final List<String> matchedSignals;
   final ApplicationStatus? suggestedStatus;
   final int? matchConfidence;
+  final String? matchConfidenceLabel;
   final InterviewSuggestion? interviewSuggestion;
+  final List<MatchCandidate> matchCandidates;
+  final ApplicationDraftFromEmail? applicationDraft;
 
   static InterviewSuggestion? _interview(dynamic raw) {
     if (raw is! Map) return null;
     return InterviewSuggestion.fromJson(raw.cast<String, dynamic>());
+  }
+
+  static List<MatchCandidate> _candidates(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => MatchCandidate.fromJson(e.cast<String, dynamic>()))
+        .toList();
+  }
+
+  static ApplicationDraftFromEmail? _draft(dynamic raw) {
+    if (raw is! Map) return null;
+    return ApplicationDraftFromEmail.fromJson(raw.cast<String, dynamic>());
   }
 
   GmailThread toEntity() => GmailThread(
@@ -86,9 +115,15 @@ class GmailThreadModel {
     applicationId: applicationId,
     matchStatus: matchStatus,
     isJobRelated: isJobRelated,
+    detectedCategory: detectedCategory,
+    detectionConfidence: detectionConfidence,
+    matchedSignals: matchedSignals,
     suggestedStatus: suggestedStatus?.apiValue,
     matchConfidence: matchConfidence,
+    matchConfidenceLabel: matchConfidenceLabel,
     interviewSuggestion: interviewSuggestion,
+    matchCandidates: matchCandidates,
+    applicationDraft: applicationDraft,
   );
 }
 
@@ -105,7 +140,13 @@ class GmailMessageModel {
       bodyText = json['body_text'] as String?,
       applicationId = json['application_id'] as String?,
       isJobRelated = json['is_job_related'] as bool? ?? false,
-      detectedCategory = json['detected_category'] as String?;
+      detectedCategory = json['detected_category'] as String?,
+      detectionConfidence = (json['detection_confidence'] as num?)?.toDouble(),
+      matchedSignals =
+          (json['matched_signals'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const <String>[];
 
   final String id;
   final String gmailMessageId;
@@ -119,6 +160,8 @@ class GmailMessageModel {
   final String? applicationId;
   final bool isJobRelated;
   final String? detectedCategory;
+  final double? detectionConfidence;
+  final List<String> matchedSignals;
 
   GmailMessage toEntity() => GmailMessage(
     id: id,
@@ -133,6 +176,8 @@ class GmailMessageModel {
     applicationId: applicationId,
     isJobRelated: isJobRelated,
     detectedCategory: detectedCategory,
+    detectionConfidence: detectionConfidence,
+    matchedSignals: matchedSignals,
   );
 }
 
@@ -169,7 +214,11 @@ class GmailMatchResultModel {
       matchStatus = GmailMatchStatus.fromApi(json['match_status']?.toString()),
       suggestedStatus = json['suggested_status']?.toString(),
       applied = json['applied'] as bool? ?? false,
-      interviewCreated = json['interview_created'] as bool? ?? false;
+      interviewCreated = json['interview_created'] as bool? ?? false,
+      alreadyApplied = json['already_applied'] as bool? ?? false,
+      interviewConflict = json['interview_conflict'] as bool? ?? false,
+      conflictMessage = json['conflict_message'] as String?,
+      interviewId = json['interview_id'] as String?;
 
   final String threadId;
   final String? applicationId;
@@ -177,6 +226,10 @@ class GmailMatchResultModel {
   final String? suggestedStatus;
   final bool applied;
   final bool interviewCreated;
+  final bool alreadyApplied;
+  final bool interviewConflict;
+  final String? conflictMessage;
+  final String? interviewId;
 
   GmailMatchResult toEntity() => GmailMatchResult(
     threadId: threadId,
@@ -185,5 +238,9 @@ class GmailMatchResultModel {
     suggestedStatus: suggestedStatus,
     applied: applied,
     interviewCreated: interviewCreated,
+    alreadyApplied: alreadyApplied,
+    interviewConflict: interviewConflict,
+    conflictMessage: conflictMessage,
+    interviewId: interviewId,
   );
 }

@@ -60,6 +60,11 @@ class GmailThreadCard extends StatelessWidget {
                 runSpacing: 6,
                 children: [
                   _Pill(label: _statusLabel(thread.matchStatus), color: accent),
+                  if (thread.detectedCategory != null)
+                    _Pill(
+                      label: thread.detectedCategory!.replaceAll('_', ' '),
+                      color: theme.colorScheme.secondary,
+                    ),
                   if (thread.suggestedStatus != null)
                     _Pill(
                       label:

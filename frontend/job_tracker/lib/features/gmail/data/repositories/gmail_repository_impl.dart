@@ -38,5 +38,14 @@ class GmailRepositoryImpl implements GmailRepository {
       _remote.ignoreMatch(threadId);
 
   @override
+  Future<GmailMatchResult> unlinkMatch(String threadId) =>
+      _remote.unlinkMatch(threadId);
+
+  @override
+  Future<List<GmailTimelineEvent>> getApplicationTimeline(
+    String applicationId,
+  ) => _remote.getApplicationTimeline(applicationId);
+
+  @override
   Future<void> disconnect(String accountId) => _remote.disconnect(accountId);
 }

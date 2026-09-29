@@ -35,6 +35,7 @@ class _GmailMatchScreenState extends ConsumerState<GmailMatchScreen> {
     required String applicationId,
     ApplicationStatus? status,
     required bool createInterview,
+    bool forceInterview = false,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
@@ -44,31 +45,67 @@ class _GmailMatchScreenState extends ConsumerState<GmailMatchScreen> {
     );
     final interview = thread.interviewSuggestion;
 
-    final ok = await ref
+    final result = await ref
         .read(gmailMatchControllerProvider.notifier)
         .confirm(
           widget.threadId,
           GmailMatchConfirm(
             applicationId: applicationId,
             status: status?.apiValue,
+            forceInterview: forceInterview,
             interview: createInterview && interview?.scheduledAt != null
                 ? InterviewDraft(
-                    type: interview!.type,
+                    type: interview!.resolvedType,
+                    interviewType: interview.resolvedType,
                     title: interview.title,
                     scheduledAt: interview.scheduledAt!,
                     durationMinutes: interview.durationMinutes ?? 60,
                     meetingUrl: interview.meetingUrl,
+                    location: interview.location,
                     interviewerName: interview.interviewerName,
+                    interviewerEmail: interview.interviewerEmail,
                   )
                 : null,
           ),
         );
 
     if (!mounted) return;
-    if (!ok) {
+    if (result == null) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Could not link this email.')),
       );
+      return;
+    }
+
+    if (result.interviewConflict) {
+      final force = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Interview conflict'),
+          content: Text(
+            result.conflictMessage ??
+                'You already have an interview at this time. Create anyway?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Create anyway'),
+            ),
+          ],
+        ),
+      );
+      if (force == true && mounted) {
+        await _confirm(
+          applicationId: applicationId,
+          status: status,
+          createInterview: createInterview,
+          forceInterview: true,
+        );
+      }
       return;
     }
 
@@ -76,7 +113,9 @@ class _GmailMatchScreenState extends ConsumerState<GmailMatchScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          status == null && !createInterview
+          result.alreadyApplied
+              ? 'Already linked (no duplicate changes)'
+              : status == null && !createInterview
               ? 'Email linked to application'
               : 'Email linked and updated',
         ),

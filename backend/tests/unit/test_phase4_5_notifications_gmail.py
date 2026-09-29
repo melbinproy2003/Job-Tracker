@@ -240,7 +240,17 @@ def test_job_email_detector_and_matcher():
     }
     detection = detector.detect(msg)
     assert detection["is_job_related"] is True
-    assert detection["category"] == "INTERVIEW"
+    assert detection["category"] == "TECHNICAL_INTERVIEW"
+    assert detection["suggested_status"] == "TECHNICAL_ROUND"
+    assert "confidence" in detection
+    assert detection["matched_signals"]
+    interview = detection["interview_suggestion"]
+    assert interview is not None
+    assert "scheduled_at" in interview
+    assert "date_hint" not in interview
+    assert "time_hint" not in interview
+    assert interview.get("interview_type") == "TECHNICAL_INTERVIEW"
+    assert interview.get("type") == "TECHNICAL_INTERVIEW"
 
     apps = [
         {

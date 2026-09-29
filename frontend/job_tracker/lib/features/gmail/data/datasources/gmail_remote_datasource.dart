@@ -117,6 +117,7 @@ class GmailRemoteDataSource {
             'create_interview': true,
             'interview': confirm.interview!.toJson(),
           },
+          if (confirm.forceInterview) 'force_interview': true,
         },
       );
       return GmailMatchResultModel.fromJson(
@@ -135,6 +136,36 @@ class GmailRemoteDataSource {
       return GmailMatchResultModel.fromJson(
         response.data ?? const {},
       ).toEntity();
+    } on DioException catch (e) {
+      ApiException.throwFromDio(e);
+    }
+  }
+
+  Future<GmailMatchResult> unlinkMatch(String threadId) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiEndpoints.gmailMatchUnlink(threadId),
+      );
+      return GmailMatchResultModel.fromJson(
+        response.data ?? const {},
+      ).toEntity();
+    } on DioException catch (e) {
+      ApiException.throwFromDio(e);
+    }
+  }
+
+  Future<List<GmailTimelineEvent>> getApplicationTimeline(
+    String applicationId,
+  ) async {
+    try {
+      final response = await _dio.get<List<dynamic>>(
+        ApiEndpoints.gmailApplicationTimeline(applicationId),
+      );
+      return (response.data ?? [])
+          .map(
+            (e) => GmailTimelineEvent.fromJson(e as Map<String, dynamic>),
+          )
+          .toList();
     } on DioException catch (e) {
       ApiException.throwFromDio(e);
     }

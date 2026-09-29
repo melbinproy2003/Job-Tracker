@@ -31,18 +31,31 @@ Flutter ──auth──▶ FastAPI ──service account──▶ Firebase
 2. **Authorize** — the user consents in the browser. Only
    `https://www.googleapis.com/auth/gmail.readonly` is requested.
 3. **Callback** — `GET /api/v1/gmail/callback?code=…&state=…` verifies `state`,
-   exchanges the code, and encrypts the refresh token into `gmail_accounts`.
+   loads the stored PKCE `code_verifier`, exchanges the code (with verifier),
+   and encrypts tokens into `gmail_accounts`.
 4. **Redirect** — the browser is sent to `gmail_frontend_success_url`
    (`jobtracker://gmail/connected`), never back to a raw token-bearing URL.
-5. **Sync** — `POST /api/v1/gmail/sync` pulls recent threads
+5. **App return** — Android/iOS open Job Tracker via the `jobtracker` scheme.
+   Flutter `app_links` handles initial + stream URIs, refreshes
+   `GET /gmail/accounts`, and shows “Gmail connected successfully”.
+   GoRouter ignores the custom scheme (`overridePlatformDefaultLocation`).
+6. **Sync** — `POST /api/v1/gmail/sync` pulls recent threads
    (see [`gmail-sync.md`](gmail-sync.md)).
-6. **Detect & match** — see [`email-matching.md`](email-matching.md).
-7. **Suggest** — a *suggestion* is stored against the application. Nothing is
+7. **Detect & match** — see [`email-matching.md`](email-matching.md).
+8. **Suggest** — a *suggestion* is stored against the application. Nothing is
    mutated yet.
-8. **Confirm** — the user reviews and confirms
+9. **Confirm** — the user reviews and confirms
    (`POST /api/v1/gmail/matches/{thread_id}/confirm`).
-9. **Disconnect** — `DELETE /api/v1/gmail/accounts/{id}` deletes the stored
+10. **Disconnect** — `DELETE /api/v1/gmail/accounts/{id}` deletes the stored
    credential.
+
+## PKCE
+
+`google_auth_oauthlib.Flow` enables PKCE by default (`autogenerate_code_verifier=True`).
+Authorization and token exchange use **different** Flow instances across HTTP
+requests, so the app generates a `code_verifier` at connect time, stores it on
+`_oauth_states` with the CSRF `state`, and passes the same verifier into
+`fetch_token` on callback. The verifier never leaves the backend.
 
 ## API
 

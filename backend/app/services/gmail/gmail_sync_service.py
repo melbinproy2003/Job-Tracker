@@ -179,6 +179,8 @@ class GmailSyncService:
                     "body_text": parsed.get("body_text"),
                     "is_job_related": detection["is_job_related"],
                     "detected_category": detection.get("category"),
+                    "detection_confidence": detection.get("confidence"),
+                    "matched_signals": detection.get("matched_signals") or [],
                     "suggested_status": detection.get("suggested_status"),
                 },
             )
@@ -197,6 +199,9 @@ class GmailSyncService:
                     ],
                     "last_message_at": parsed.get("received_at"),
                     "is_job_related": detection["is_job_related"],
+                    "detected_category": detection.get("category"),
+                    "detection_confidence": detection.get("confidence"),
+                    "matched_signals": detection.get("matched_signals") or [],
                     "suggested_status": detection.get("suggested_status"),
                     "interview_suggestion": detection.get("interview_suggestion"),
                 },
@@ -212,18 +217,19 @@ class GmailSyncService:
                 existing_thread_application_id=thread.get("application_id"),
             )
             best = self._matcher.best_match(candidates)
-            update: dict[str, Any] = {}
+            update: dict[str, Any] = {
+                "match_candidates": candidates[:5],
+            }
             if best and best["confidence"] >= 40:
                 update["match_status"] = GmailMatchStatus.SUGGESTED.value
                 update["suggested_application_id"] = best["application_id"]
                 update["match_confidence"] = best["confidence"]
                 update["match_confidence_label"] = best["confidence_label"]
-                if best["confidence"] >= 70 and not thread.get("application_id"):
-                    # Still require confirm — only suggest
-                    pass
                 matches_suggested += 1
-            elif not thread.get("match_status"):
-                update["match_status"] = GmailMatchStatus.UNMATCHED.value
+            else:
+                if not thread.get("match_status"):
+                    update["match_status"] = GmailMatchStatus.UNMATCHED.value
+                update["application_draft"] = self._matcher.build_application_draft(parsed)
 
             if update:
                 thread = self._threads.update(user_id, thread["id"], update)
@@ -264,6 +270,29 @@ class GmailSyncService:
                         },
                         related_application_id=best["application_id"],
                         dedupe_key=f"gmail_{mid}_status_suggestion",
+                    )
+                interview = detection.get("interview_suggestion") or {}
+                if interview.get("scheduled_at") and prefs.get("application_suggestions", True):
+                    self._notifier.create_and_push(
+                        user_id,
+                        type=NotificationType.INTERVIEW_DETECTED,
+                        title="Interview detected",
+                        body=f"{company}: {interview.get('title') or parsed.get('subject')}",
+                        data={
+                            "thread_id": thread["id"],
+                            "application_id": (best or {}).get("application_id"),
+                        },
+                        related_application_id=(best or {}).get("application_id"),
+                        dedupe_key=f"gmail_{mid}_interview",
+                    )
+                if not best and prefs.get("application_suggestions", True):
+                    self._notifier.create_and_push(
+                        user_id,
+                        type=NotificationType.NEW_APPLICATION_DETECTED,
+                        title="Potential new application",
+                        body=f"{company}: no matching application found",
+                        data={"thread_id": thread["id"]},
+                        dedupe_key=f"gmail_{mid}_new_app",
                     )
 
             if best and best.get("application_id"):

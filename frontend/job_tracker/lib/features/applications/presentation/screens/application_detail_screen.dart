@@ -474,7 +474,7 @@ class ApplicationDetailScreen extends ConsumerWidget {
   }
 }
 
-/// Phase 5: the job-related emails detected for this application.
+/// Phase 5/6: job-related emails and timeline for this application.
 ///
 /// Read-only and clearly separated from the status timeline: a detected email
 /// is a *suggestion*, and nothing here changes the application on its own. A
@@ -488,6 +488,7 @@ class _EmailsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final threads = ref.watch(gmailThreadsProvider(applicationId));
+    final timeline = ref.watch(gmailApplicationTimelineProvider(applicationId));
     final theme = Theme.of(context);
 
     return Column(
@@ -515,6 +516,50 @@ class _EmailsSection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 8),
+        timeline.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (events) {
+            if (events.isEmpty) return const SizedBox.shrink();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Email timeline',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                for (final e in events.take(5))
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.timeline, size: 20),
+                    title: Text(
+                      e.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      [
+                        if (e.category != null)
+                          e.category!.replaceAll('_', ' '),
+                        if (e.occurredAt != null)
+                          DateFormat.yMMMd().add_jm().format(e.occurredAt!),
+                      ].join(' · '),
+                    ),
+                    onTap: e.threadId == null
+                        ? null
+                        : () => context.push(
+                            RouteNames.gmailThreadDetailPath(e.threadId!),
+                          ),
+                  ),
+                const SizedBox(height: 12),
+              ],
+            );
+          },
+        ),
         threads.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(8),

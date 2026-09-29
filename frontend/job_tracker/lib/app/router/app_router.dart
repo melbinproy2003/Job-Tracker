@@ -48,12 +48,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: RouteNames.root,
+    // Custom scheme deep links (jobtracker://gmail/...) are handled by
+    // app_links + GmailOAuthDeepLinkHandler — not by GoRouter path matching.
+    overridePlatformDefaultLocation: true,
     refreshListenable: refresh,
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
       final loc = state.matchedLocation;
       final loggingIn = loc == RouteNames.login || loc.startsWith('/auth');
       final atRoot = loc == RouteNames.root;
+
+      // Ignore accidental platform URIs that leak into the matched location.
+      if (loc.startsWith('jobtracker:') || state.uri.scheme == 'jobtracker') {
+        return auth.isAuthenticated
+            ? RouteNames.settingsEmail
+            : RouteNames.login;
+      }
 
       if (auth.isLoading || auth.status == AuthenticationStatus.initial) {
         return atRoot ? null : RouteNames.root;

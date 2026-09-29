@@ -61,7 +61,8 @@ def parse_gmail_message(raw: dict[str, Any]) -> dict[str, Any]:
             received_at = None
 
     body_text = extract_text_body(payload)
-    # Cap body size
+    body_text = _strip_quoted_reply(body_text)
+    # Cap body size — retention policy (see gmail_retention_service / docs)
     if len(body_text) > 4000:
         body_text = body_text[:4000]
 
@@ -76,3 +77,26 @@ def parse_gmail_message(raw: dict[str, Any]) -> dict[str, Any]:
         "received_at": received_at,
         "normalized_subject": subject,
     }
+
+
+def _strip_quoted_reply(text: str) -> str:
+    """Drop common reply/forward tails to keep stored bodies smaller."""
+    if not text:
+        return ""
+    markers = (
+        "\nOn ",
+        "\nFrom:",
+        "\n-----Original Message-----",
+        "\n________________________________",
+    )
+    cut = len(text)
+    for marker in markers:
+        idx = text.find(marker)
+        if 0 < idx < cut:
+            cut = idx
+    lines = []
+    for line in text[:cut].splitlines():
+        if line.startswith(">"):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()

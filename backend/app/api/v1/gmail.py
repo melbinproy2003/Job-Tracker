@@ -19,8 +19,10 @@ from app.schemas.gmail import (
     GmailMatchConfirmRequest,
     GmailMatchResponse,
     GmailMessageResponse,
+    GmailRetentionCleanupResponse,
     GmailSyncRequest,
     GmailSyncResponse,
+    GmailTimelineEvent,
     GmailThreadResponse,
 )
 from app.services.gmail.gmail_service import GmailService
@@ -53,8 +55,10 @@ def gmail_callback(
     service: Annotated[GmailService, Depends(get_gmail_service)],
     code: Annotated[str | None, Query()] = None,
     state: Annotated[str | None, Query()] = None,
+    error: Annotated[str | None, Query()] = None,
 ) -> RedirectResponse:
-    url = service.handle_callback(code, state)
+    """Google redirects here (unauthenticated). ``state`` binds the user + PKCE."""
+    url = service.handle_callback(code, state, oauth_error=error)
     return RedirectResponse(url=url, status_code=302)
 
 
@@ -112,6 +116,38 @@ def ignore_match(
     service: Annotated[GmailService, Depends(get_gmail_service)],
 ) -> GmailMatchResponse:
     return service.ignore_match(user_id, thread_id)
+
+
+@router.post("/matches/{thread_id}/unlink", response_model=GmailMatchResponse)
+def unlink_match(
+    thread_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    service: Annotated[GmailService, Depends(get_gmail_service)],
+) -> GmailMatchResponse:
+    return service.unlink_match(user_id, thread_id)
+
+
+@router.get(
+    "/applications/{application_id}/timeline",
+    response_model=list[GmailTimelineEvent],
+)
+def application_gmail_timeline(
+    application_id: str,
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    service: Annotated[GmailService, Depends(get_gmail_service)],
+) -> list[GmailTimelineEvent]:
+    return service.application_timeline(user_id, application_id)
+
+
+@router.post("/retention/cleanup", response_model=GmailRetentionCleanupResponse)
+def cleanup_gmail_bodies(
+    user_id: Annotated[str, Depends(get_current_user_id)],
+    retain_days: Annotated[int, Query(ge=1, le=3650)] = 90,
+) -> GmailRetentionCleanupResponse:
+    from app.services.gmail.gmail_retention_service import GmailRetentionService
+
+    result = GmailRetentionService().clear_old_bodies(user_id, retain_days=retain_days)
+    return GmailRetentionCleanupResponse(**result)
 
 
 @router.delete("/accounts/{account_id}", status_code=204)

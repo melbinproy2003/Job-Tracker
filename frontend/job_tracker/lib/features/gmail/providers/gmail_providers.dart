@@ -56,6 +56,13 @@ final gmailMessageDetailProvider = FutureProvider.autoDispose
       return ref.watch(gmailRepositoryProvider).getMessage(messageId);
     });
 
+final gmailApplicationTimelineProvider = FutureProvider.autoDispose
+    .family<List<GmailTimelineEvent>, String>((ref, applicationId) {
+      return ref
+          .watch(gmailRepositoryProvider)
+          .getApplicationTimeline(applicationId);
+    });
+
 /// Drives manual Gmail sync.
 ///
 /// Concurrency is guarded client-side as well as server-side: a sync can take
@@ -130,13 +137,19 @@ class GmailMatchController extends StateNotifier<GmailMatchState> {
 
   /// Links the thread to an application. Status and interview creation only
   /// happen when [confirm] carries them.
-  Future<bool> confirm(String threadId, GmailMatchConfirm confirm) async {
-    if (state.busyThreadId != null) return false;
+  ///
+  /// Returns the server result on success (including conflict flags), or null
+  /// on failure / busy.
+  Future<GmailMatchResult?> confirm(
+    String threadId,
+    GmailMatchConfirm confirm,
+  ) async {
+    if (state.busyThreadId != null) return null;
     state = GmailMatchState(busyThreadId: threadId);
     try {
       final result = await _repository.confirmMatch(threadId, confirm);
       state = GmailMatchState(lastResult: result, succeededThreadId: threadId);
-      return true;
+      return result;
     } catch (error) {
       debugPrint('Match confirmation failed: ${error.runtimeType}');
       state = GmailMatchState(
@@ -144,7 +157,7 @@ class GmailMatchController extends StateNotifier<GmailMatchState> {
         error: error,
         busyThreadId: null,
       );
-      return false;
+      return null;
     }
   }
 
@@ -157,6 +170,24 @@ class GmailMatchController extends StateNotifier<GmailMatchState> {
       return true;
     } catch (error) {
       debugPrint('Match ignore failed: ${error.runtimeType}');
+      state = GmailMatchState(
+        failedThreadId: threadId,
+        error: error,
+        busyThreadId: null,
+      );
+      return false;
+    }
+  }
+
+  Future<bool> unlink(String threadId) async {
+    if (state.busyThreadId != null) return false;
+    state = GmailMatchState(busyThreadId: threadId);
+    try {
+      final result = await _repository.unlinkMatch(threadId);
+      state = GmailMatchState(lastResult: result, succeededThreadId: threadId);
+      return true;
+    } catch (error) {
+      debugPrint('Match unlink failed: ${error.runtimeType}');
       state = GmailMatchState(
         failedThreadId: threadId,
         error: error,

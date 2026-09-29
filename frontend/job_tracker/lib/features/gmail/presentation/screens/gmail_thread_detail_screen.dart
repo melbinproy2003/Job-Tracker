@@ -92,12 +92,84 @@ class _Body extends ConsumerWidget {
         else if (thread.applicationId != null)
           Padding(
             padding: const EdgeInsets.all(16),
-            child: FilledButton.tonalIcon(
-              onPressed: () => context.push(
-                RouteNames.applicationDetailPath(thread.applicationId!),
-              ),
-              icon: const Icon(Icons.work_outline, size: 18),
-              label: const Text('Open linked application'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () => context.push(
+                    RouteNames.applicationDetailPath(thread.applicationId!),
+                  ),
+                  icon: const Icon(Icons.work_outline, size: 18),
+                  label: const Text('Open linked application'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Unlink email?'),
+                        content: const Text(
+                          'This removes the link only. Application status and '
+                          'interviews are unchanged.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Unlink'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (ok != true || !context.mounted) return;
+                    final appId = thread.applicationId;
+                    final success = await ref
+                        .read(gmailMatchControllerProvider.notifier)
+                        .unlink(thread.id);
+                    if (!context.mounted) return;
+                    if (success) {
+                      ref.invalidate(gmailThreadDetailProvider(thread.id));
+                      ref.invalidate(gmailThreadsProvider(appId));
+                      ref.invalidate(gmailApplicationTimelineProvider(appId!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Email unlinked')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Could not unlink')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.link_off, size: 18),
+                  label: const Text('Unlink from application'),
+                ),
+              ],
+            ),
+          ),
+        if (thread.detectedCategory != null ||
+            thread.matchedSignals.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (thread.detectedCategory != null)
+                  Text(
+                    'Category: ${thread.detectedCategory!.replaceAll('_', ' ')}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                if (thread.matchedSignals.isNotEmpty)
+                  Text(
+                    'Signals: ${thread.matchedSignals.take(5).join(', ')}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
             ),
           ),
         const Divider(height: 24),
