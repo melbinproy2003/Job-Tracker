@@ -28,8 +28,6 @@ logger = logging.getLogger(__name__)
 
 GMAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "openid",
 ]
 
 # RFC 7636 unreserved characters for code_verifier.
@@ -127,19 +125,21 @@ class GoogleOAuthClient:
         settings = get_settings()
         if not settings.google_client_id or not settings.google_client_secret:
             raise RuntimeError("Google OAuth client is not configured.")
+        validate_fn = getattr(settings, "validate_google_redirect_uri", None)
+        redirect_uri = validate_fn() if callable(validate_fn) else settings.google_redirect_uri
         client_config = {
             "web": {
                 "client_id": settings.google_client_id,
                 "client_secret": settings.google_client_secret,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [settings.google_redirect_uri],
+                "redirect_uris": [redirect_uri],
             }
         }
         return Flow.from_client_config(
             client_config,
             scopes=GMAIL_SCOPES,
-            redirect_uri=settings.google_redirect_uri,
+            redirect_uri=redirect_uri,
             code_verifier=code_verifier,
             # Verifier is supplied explicitly; never auto-generate on a fresh Flow.
             autogenerate_code_verifier=False,

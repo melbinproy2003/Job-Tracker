@@ -76,8 +76,10 @@ class OAuthStateRepository:
         if data.get("used"):
             return None
         expires = data.get("expires_at")
-        if expires and expires < _utc_now():
-            return None
+        if isinstance(expires, datetime):
+            exp_utc = expires if expires.tzinfo else expires.replace(tzinfo=timezone.utc)
+            if exp_utc < _utc_now():
+                return None
         user_id = data.get("user_id")
         code_verifier = data.get("code_verifier")
         if not user_id or not code_verifier:

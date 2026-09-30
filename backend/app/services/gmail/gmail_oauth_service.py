@@ -46,14 +46,29 @@ class GmailOAuthService:
         self._oauth = oauth_client or GoogleOAuthClient()
 
     def build_authorization_url(self, user_id: str) -> str:
+        from urllib.parse import urlparse
+
         settings = get_settings()
         if not settings.google_client_id or not settings.google_client_secret:
             raise AppError(
                 "Gmail OAuth is not configured.", code="GMAIL_NOT_CONFIGURED", status_code=503
             )
+        validate_fn = getattr(settings, "validate_google_redirect_uri", None)
+        redirect_uri = (
+            validate_fn() if callable(validate_fn) else getattr(settings, "google_redirect_uri", "")
+        )
+        parsed_redirect = urlparse(str(redirect_uri))
         state = secrets.token_urlsafe(24)
         code_verifier = generate_code_verifier()
         self._states.save(state, user_id, code_verifier=code_verifier)
+        logger.info(
+            "Gmail OAuth connect initiated (env=%s, redirect_host=%s, redirect_path=%s, "
+            "state_saved=True, verifier_present=%s)",
+            getattr(settings, "app_env", "unknown"),
+            parsed_redirect.hostname or "unknown",
+            parsed_redirect.path or "unknown",
+            bool(code_verifier),
+        )
         return self._oauth.build_authorization_url(state, code_verifier=code_verifier)
 
     def handle_callback(
@@ -63,6 +78,24 @@ class GmailOAuthService:
         state: str | None,
         oauth_error: str | None = None,
     ) -> dict[str, Any]:
+        from urllib.parse import urlparse
+
+        settings = get_settings()
+        redirect_uri = getattr(settings, "resolved_google_redirect_uri", None) or getattr(
+            settings, "google_redirect_uri", ""
+        )
+        parsed_redirect = urlparse(str(redirect_uri))
+        logger.info(
+            "Gmail OAuth callback reached (env=%s, state_present=%s, code_present=%s, "
+            "oauth_error=%s, redirect_host=%s, redirect_path=%s)",
+            getattr(settings, "app_env", "unknown"),
+            bool(state),
+            bool(code),
+            oauth_error[:80] if oauth_error else None,
+            parsed_redirect.hostname or "unknown",
+            parsed_redirect.path or "unknown",
+        )
+
         # User cancelled / denied on Google's consent screen.
         if oauth_error:
             logger.info("Gmail OAuth provider error: %s", oauth_error[:80])
@@ -77,17 +110,35 @@ class GmailOAuthService:
             )
 
         if not code or not state:
+            logger.warning(
+                "Gmail OAuth callback missing required query parameters "
+                "(code_present=%s, state_present=%s)",
+                bool(code),
+                bool(state),
+            )
             raise ValidationError("Missing OAuth code or state.", code="INVALID_OAUTH_CALLBACK")
 
         pending = self._states.consume(state)
         if not pending:
+            logger.warning(
+                "Gmail OAuth state validation failed (state_present=True, state_valid=False)"
+            )
             raise ValidationError("Invalid or expired OAuth state.", code="INVALID_OAUTH_STATE")
         if not pending.code_verifier:
+            logger.warning(
+                "Gmail OAuth state missing PKCE verifier (state_valid=True, verifier_present=False)"
+            )
             # Should be unreachable after consume() validation; keep explicit.
             raise ValidationError(
                 "Missing PKCE code verifier for this OAuth state.",
                 code="MISSING_CODE_VERIFIER",
             )
+
+        logger.info(
+            "Gmail OAuth state validated (state_valid=True, verifier_present=True, "
+            "redirect_host=%s)",
+            parsed_redirect.hostname or "unknown",
+        )
 
         try:
             tokens = self._oauth.exchange_code(code, code_verifier=pending.code_verifier)
@@ -95,7 +146,9 @@ class GmailOAuthService:
             # Log type + message (no tokens/codes). Warning often means oauthlib
             # scope mismatch when Google returns extra granted scopes.
             logger.warning(
-                "Gmail token exchange failed: %s: %s",
+                "Gmail token exchange failed (redirect_host=%s, redirect_path=%s): %s: %s",
+                parsed_redirect.hostname or "unknown",
+                parsed_redirect.path or "unknown",
                 type(exc).__name__,
                 str(exc)[:200],
             )
@@ -200,6 +253,7 @@ class GmailOAuthService:
             "oauth_denied": "oauth_denied",
             "invalid_oauth_state": "invalid_state",
             "invalid_oauth_callback": "oauth_failed",
+            "invalid_oauth_redirect_uri": "gmail_not_configured",
             "missing_code_verifier": "token_exchange_failed",
             "gmail_token_exchange_failed": "token_exchange_failed",
             "gmail_token_error": "token_exchange_failed",
